@@ -1,0 +1,6 @@
+tqdm
+pynvml
+datasets
+matplotlib
+transformers
+huggingface_hub
