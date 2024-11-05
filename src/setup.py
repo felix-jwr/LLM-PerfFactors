@@ -30,7 +30,7 @@ def check_vram_usage(plot=False):
         plt.bar(range(0, pynvml.nvmlUnitGetDeviceCount), vram_usage, color='blue', label='Used')
         plt.show()
 
-    print(f"VRAM Usage: {[i + 'GB' for i in vram_usage]}")
+    print(f"VRAM Usage: {[str(i) + 'GB' for i in vram_usage]}")
     pynvml.nvmlShutdown()
     
     return vram_usage
@@ -92,21 +92,20 @@ def empty_cache():
 
 
 # ==================================================================================================
-# # Check if the GPU is available and allocated
+# Check if the GPU is available and allocated
 # print(f"GPU available: {torch.cuda.is_available()}, Number of GPUs: {torch.cuda.device_count()}")
 # check_vram_usage(plot=False)
 
-# # Download and load the model
-# download_model()
+# Download and load the model
 # load_model()
 
-# # Check the VRAM usage after loading the model
+# Check the VRAM usage after loading the model
 # check_vram_usage(plot=False)
 
-# # Download the dataset
-# # download_dataset(data_name="wikitext")
+# Download the dataset
+# download_dataset(data_name="wikitext")
 
-# # Empty the cache
+# Empty the cache
 # empty_cache()
 # check_vram_usage(plot=False)
 # ==================================================================================================
