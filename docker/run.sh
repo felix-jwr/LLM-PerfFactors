@@ -1,4 +1,3 @@
 #!/bin/bash
 cd /app/src
-python3 setup.py
-pip list
+python3 train.py

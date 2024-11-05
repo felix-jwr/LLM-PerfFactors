@@ -1,6 +1,11 @@
+trl
 tqdm
+peft
 pynvml
 datasets
 matplotlib
+accelerate
+tensorboard
 transformers
+bitsandbytes
 huggingface_hub
