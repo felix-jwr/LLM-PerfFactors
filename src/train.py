@@ -1,6 +1,5 @@
-import os
 import torch
-from datasets import load_dataset
+from trl import SFTTrainer
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -10,116 +9,68 @@ from transformers import (
     pipeline,
     logging,
 )
+from datasets import load_dataset
+from huggingface_hub import login
 from peft import LoraConfig, PeftModel
-from trl import SFTTrainer
+from util import empty_vram, check_vram_usage
 
-# The model that you want to train from the Hugging Face hub
-model_name = "NousResearch/Llama-2-7b-chat-hf"
+# Login to HF
+access_key = open('access_token.txt','r').read()
+login(token = access_key)
 
-# The instruction dataset to use
+# Set the name of the model to train, the dataset to use, and the name of the new (fine-tuned) model
+model_name = "meta-llama/Llama-2-7b-chat-hf"
 dataset_name = "mlabonne/guanaco-llama2-1k"
-
-# Fine-tuned model name
 new_model = "llama-2-7b-miniguanaco"
 
 ################################################################################
 # QLoRA parameters
 ################################################################################
 
-# LoRA attention dimension
-lora_r = 64
-
-# Alpha parameter for LoRA scaling
-lora_alpha = 16
-
-# Dropout probability for LoRA layers
-lora_dropout = 0.1
+lora_r = 64                         # LoRA attention dimension
+lora_alpha = 16                     # Alpha parameter for LoRA scaling
+lora_dropout = 0.1                  # Dropout probability for LoRA layers
 
 ################################################################################
 # bitsandbytes parameters
 ################################################################################
 
-# Activate 4-bit precision base model loading
-use_4bit = True
-
-# Compute dtype for 4-bit base models
-bnb_4bit_compute_dtype = "float16"
-
-# Quantization type (fp4 or nf4)
-bnb_4bit_quant_type = "nf4"
-
-# Activate nested quantization for 4-bit base models (double quantization)
-use_nested_quant = False
+use_4bit = True                     # Activate 4-bit precision base model loading
+bnb_4bit_compute_dtype = "float16"  # Compute dtype for 4-bit base models
+bnb_4bit_quant_type = "nf4"         # Quantization type (fp4 or nf4)
+use_nested_quant = False            # Activate nested quantization for 4-bit base models (double quantization)
 
 ################################################################################
 # TrainingArguments parameters
 ################################################################################
 
-# Output directory where the model predictions and checkpoints will be stored
-output_dir = "./results"
 
-# Number of training epochs
-num_train_epochs = 1
-
-# Enable fp16/bf16 training (set bf16 to True with an A100)
-fp16 = False
+output_dir = "./results"            # Output directory where the model predictions and checkpoints will be stored
+num_train_epochs = 1                # Number of training epochs
+fp16 = False                        # Enable fp16/bf16 training (set bf16 to True with an A100)
 bf16 = False
-
-# Batch size per GPU for training
-per_device_train_batch_size = 4
-
-# Batch size per GPU for evaluation
-per_device_eval_batch_size = 4
-
-# Number of update steps to accumulate the gradients for
-gradient_accumulation_steps = 1
-
-# Enable gradient checkpointing
-gradient_checkpointing = True
-
-# Maximum gradient normal (gradient clipping)
-max_grad_norm = 0.3
-
-# Initial learning rate (AdamW optimizer)
-learning_rate = 2e-4
-
-# Weight decay to apply to all layers except bias/LayerNorm weights
-weight_decay = 0.001
-
-# Optimizer to use
-optim = "paged_adamw_32bit"
-
-# Learning rate schedule
-lr_scheduler_type = "cosine"
-
-# Number of training steps (overrides num_train_epochs)
-max_steps = -1
-
-# Ratio of steps for a linear warmup (from 0 to learning rate)
-warmup_ratio = 0.03
-
-# Group sequences into batches with same length
-# Saves memory and speeds up training considerably
-group_by_length = True
-
-# Save checkpoint every X updates steps
-save_steps = 0
-
-# Log every X updates steps
-logging_steps = 25
+per_device_train_batch_size = 4     # Batch size per GPU for training
+per_device_eval_batch_size = 4      # Batch size per GPU for evaluation
+gradient_accumulation_steps = 1     # Number of update steps to accumulate the gradients for
+gradient_checkpointing = True       # Enable gradient checkpointing
+max_grad_norm = 0.3                 # Maximum gradient normal (gradient clipping)
+learning_rate = 2e-4                # Initial learning rate (AdamW optimizer)
+weight_decay = 0.001                # Weight decay to apply to all layers except bias/LayerNorm weights
+optim = "paged_adamw_32bit"         # Optimizer to use (AdamW, PagedAdamW, etc.)
+lr_scheduler_type = "cosine"        # Learning rate schedule
+max_steps = -1                      # Number of training steps (overrides num_train_epochs)
+warmup_ratio = 0.03                 # Ratio of steps for a linear warmup (from 0 to learning rate)
+group_by_length = True              # Group sequences into batches with same length. Saves memory and speeds up training
+save_steps = 0                      # Save checkpoint every X updates steps (0 to disable)
+logging_steps = 25                  # Log every X updates steps (0 to disable)
 
 ################################################################################
 # SFT parameters
 ################################################################################
 
-# Maximum sequence length to use
-max_seq_length = None
-
-# Pack multiple short examples in the same input sequence to increase efficiency
-packing = False
-
-# Load the entire model on the GPU 0
-device_map = "auto" #TODO: fix me :(
+max_seq_length = None               # Maximum sequence length to use
+packing = False                     # Pack multiple short examples in the same input sequence to increase efficiency
+device_map = "auto"                 # Where to load the model (auto, cuda:0, etc.)
 
 ################################################################################
 # Load Dataset
@@ -130,7 +81,6 @@ dataset = load_dataset(dataset_name, split="train")
 
 # Load tokenizer and model with QLoRA configuration
 compute_dtype = getattr(torch, bnb_4bit_compute_dtype)
-
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=use_4bit,
     bnb_4bit_quant_type=bnb_4bit_quant_type,
@@ -190,7 +140,7 @@ training_arguments = TrainingArguments(
     report_to="tensorboard"
 )
 
-# Set supervised fine-tuning parameters
+# Set supervised fine-tuning (SFT) parameters
 trainer = SFTTrainer(
     model=model,
     train_dataset=dataset,
@@ -202,19 +152,19 @@ trainer = SFTTrainer(
     packing=packing,
 )
 
-# Train model
-trainer.train()
+# Check VRAM usage after loading everything
+check_vram_usage(plot=False)
 
-# Save trained model
+# Train model and save
+trainer.train()
 trainer.model.save_pretrained(new_model)
 
 # Empty VRAM
-del model
-del trainer
-import gc
-torch.cuda.empty_cache()
-gc.collect()
-gc.collect()
+empty_vram(model=model, trainer=trainer)
+
+################################################################################
+# Merge LoRA weights with base model
+################################################################################
 
 # Reload model in FP16 and merge it with LoRA weights
 base_model = AutoModelForCausalLM.from_pretrained(
@@ -231,3 +181,10 @@ model = model.merge_and_unload()
 tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "right"
+
+merged_model_dir = "llama-2-7b-hf-ft"
+model.save_pretrained(merged_model_dir)
+tokenizer.save_pretrained(merged_model_dir)
+
+# Empty VRAM
+empty_vram(model=model, trainer=None)
