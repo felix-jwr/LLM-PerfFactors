@@ -21,7 +21,7 @@ login(token = access_key)
 # Set the name of the model to train, the dataset to use, and the name of the new (fine-tuned) model
 model_name = "meta-llama/Llama-2-7b-chat-hf"
 dataset_name = "mlabonne/guanaco-llama2-1k"
-new_model = "llama-2-7b-ft-weights"
+new_model = "../llama-2-7b-ft-weights"
 
 ################################################################################
 # QLoRA parameters
@@ -45,7 +45,7 @@ use_nested_quant = False            # Activate nested quantization for 4-bit bas
 ################################################################################
 
 
-output_dir = "./results"            # Output directory where the model predictions and checkpoints will be stored
+output_dir = "../results"           # Output directory where the model predictions and checkpoints will be stored
 num_train_epochs = 1                # Number of training epochs
 fp16 = False                        # Enable fp16/bf16 training (set bf16 to True with an A100)
 bf16 = False
@@ -182,7 +182,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "right"
 
-merged_model_dir = "ft-model-merged"
+merged_model_dir = "../ft-model-merged"
 model.save_pretrained(merged_model_dir)
 tokenizer.save_pretrained(merged_model_dir)
 

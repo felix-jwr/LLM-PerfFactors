@@ -13,15 +13,15 @@ RUN pip install -r /app/docker/requirements.txt
 RUN chmod +x /app/docker/run.sh
 
 # Create necessary directories and set permissions
-# RUN mkdir -p /app/.cache/huggingface /app/.config/matplotlib && \
-#     chown -R $(id -u):$(id -g) /app/.cache /app/.config
+RUN mkdir -p /app/.cache/huggingface /app/.config/matplotlib && \
+    chown -R $(id -u):$(id -g) /app/.cache /app/.config
 
 # ENV key=value sets environment variables
-# ENV HF_HOME=/app/.cache/huggingface
-# ENV MPLCONFIGDIR=/app/.config/matplotlib
+ENV HF_HOME=/app/.cache/huggingface
+ENV MPLCONFIGDIR=/app/.config/matplotlib
 
 # USER <username>[:<group>] sets the user to run the container as
-# USER $(id -u):$(id -g)
+USER $(id -u):$(id -g)
 
 # CMD <command> sets the default command to run when the container starts
 CMD ["/app/docker/run.sh"]

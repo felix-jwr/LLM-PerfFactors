@@ -161,6 +161,9 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# HF Stuff
+.config
+
 # Repo Specific Ignores
 src/access_token.txt
 ft-model-merged/
