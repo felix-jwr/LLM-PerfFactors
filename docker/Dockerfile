@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+FROM bath:2022-gpu
 
 WORKDIR /app
 
@@ -13,12 +13,12 @@ RUN pip install -r /app/docker/requirements.txt
 RUN chmod +x /app/docker/run.sh
 
 # Create necessary directories and set permissions
-RUN mkdir -p /app/.cache/huggingface /app/.config/matplotlib && \
-    chown -R $(id -u):$(id -g) /app/.cache /app/.config
+# RUN mkdir -p /app/.cache/huggingface /app/.config/matplotlib && \
+#     chown -R $(id -u):$(id -g) /app/.cache /app/.config
 
 # ENV key=value sets environment variables
-ENV HF_HOME=/app/.cache/huggingface
-ENV MPLCONFIGDIR=/app/.config/matplotlib
+# ENV HF_HOME=/app/.cache/huggingface
+# ENV MPLCONFIGDIR=/app/.config/matplotlib
 
 # USER <username>[:<group>] sets the user to run the container as
 # USER $(id -u):$(id -g)

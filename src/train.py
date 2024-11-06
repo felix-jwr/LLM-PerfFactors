@@ -1,210 +1,233 @@
 import os
 import torch
-import pynvml
-import numpy as np
-
+from datasets import load_dataset
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    HfArgumentParser,
+    TrainingArguments,
+    pipeline,
+    logging,
+)
+from peft import LoraConfig, PeftModel
 from trl import SFTTrainer
-from typing import List, Optional
-from peft import LoraConfig, PeftModel, get_peft_model
-from accelerate import init_empty_weights, infer_auto_device_map
-from setup import load_model, download_dataset, check_vram_usage, empty_cache
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, pipeline
 
+# The model that you want to train from the Hugging Face hub
+model_name = "NousResearch/Llama-2-7b-chat-hf"
 
-# Load model and dataset
-print(f"GPU available: {torch.cuda.is_available()}, Number of GPUs: {torch.cuda.device_count()}")
-model_path, base_model, llama_tokenizer = load_model(model_name="llama-2-7b-hf", plot=False)
-training_data = download_dataset(data_name="mlabonne/guanaco-llama2-1k")
-check_vram_usage()
+# The instruction dataset to use
+dataset_name = "mlabonne/guanaco-llama2-1k"
 
-# Training Params
-train_params = TrainingArguments(
-    output_dir="./results_modified",
-    num_train_epochs=1,
-    per_device_train_batch_size=1,
-    gradient_accumulation_steps=1,
-    optim="paged_adamw_32bit",
-    save_steps=50,
-    logging_steps=50,
-    learning_rate=4e-5,
-    weight_decay=0.001,
-    fp16=False,
-    bf16=False,
-    max_grad_norm=0.3,
-    max_steps=-1,
-    warmup_ratio=0.03,
-    group_by_length=True,
-    lr_scheduler_type="constant",
+# Fine-tuned model name
+new_model = "llama-2-7b-miniguanaco"
+
+################################################################################
+# QLoRA parameters
+################################################################################
+
+# LoRA attention dimension
+lora_r = 64
+
+# Alpha parameter for LoRA scaling
+lora_alpha = 16
+
+# Dropout probability for LoRA layers
+lora_dropout = 0.1
+
+################################################################################
+# bitsandbytes parameters
+################################################################################
+
+# Activate 4-bit precision base model loading
+use_4bit = True
+
+# Compute dtype for 4-bit base models
+bnb_4bit_compute_dtype = "float16"
+
+# Quantization type (fp4 or nf4)
+bnb_4bit_quant_type = "nf4"
+
+# Activate nested quantization for 4-bit base models (double quantization)
+use_nested_quant = False
+
+################################################################################
+# TrainingArguments parameters
+################################################################################
+
+# Output directory where the model predictions and checkpoints will be stored
+output_dir = "./results"
+
+# Number of training epochs
+num_train_epochs = 1
+
+# Enable fp16/bf16 training (set bf16 to True with an A100)
+fp16 = False
+bf16 = False
+
+# Batch size per GPU for training
+per_device_train_batch_size = 4
+
+# Batch size per GPU for evaluation
+per_device_eval_batch_size = 4
+
+# Number of update steps to accumulate the gradients for
+gradient_accumulation_steps = 1
+
+# Enable gradient checkpointing
+gradient_checkpointing = True
+
+# Maximum gradient normal (gradient clipping)
+max_grad_norm = 0.3
+
+# Initial learning rate (AdamW optimizer)
+learning_rate = 2e-4
+
+# Weight decay to apply to all layers except bias/LayerNorm weights
+weight_decay = 0.001
+
+# Optimizer to use
+optim = "paged_adamw_32bit"
+
+# Learning rate schedule
+lr_scheduler_type = "cosine"
+
+# Number of training steps (overrides num_train_epochs)
+max_steps = -1
+
+# Ratio of steps for a linear warmup (from 0 to learning rate)
+warmup_ratio = 0.03
+
+# Group sequences into batches with same length
+# Saves memory and speeds up training considerably
+group_by_length = True
+
+# Save checkpoint every X updates steps
+save_steps = 0
+
+# Log every X updates steps
+logging_steps = 25
+
+################################################################################
+# SFT parameters
+################################################################################
+
+# Maximum sequence length to use
+max_seq_length = None
+
+# Pack multiple short examples in the same input sequence to increase efficiency
+packing = False
+
+# Load the entire model on the GPU 0
+device_map = "auto" #TODO: fix me :(
+
+################################################################################
+# Load Dataset
+################################################################################
+
+# Load dataset (you can process it here)
+dataset = load_dataset(dataset_name, split="train")
+
+# Load tokenizer and model with QLoRA configuration
+compute_dtype = getattr(torch, bnb_4bit_compute_dtype)
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=use_4bit,
+    bnb_4bit_quant_type=bnb_4bit_quant_type,
+    bnb_4bit_compute_dtype=compute_dtype,
+    bnb_4bit_use_double_quant=use_nested_quant,
+)
+
+# Check GPU compatibility with bfloat16
+if compute_dtype == torch.float16 and use_4bit:
+    major, _ = torch.cuda.get_device_capability()
+    if major >= 8:
+        print("=" * 80)
+        print("Your GPU supports bfloat16: accelerate training with bf16=True")
+        print("=" * 80)
+
+# Load base model
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    quantization_config=bnb_config,
+    device_map=device_map
+)
+model.config.use_cache = False
+model.config.pretraining_tp = 1
+
+# Load LLaMA tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+tokenizer.pad_token = tokenizer.eos_token
+tokenizer.padding_side = "right" # Fix weird overflow issue with fp16 training
+
+# Load LoRA configuration
+peft_config = LoraConfig(
+    lora_alpha=lora_alpha,
+    lora_dropout=lora_dropout,
+    r=lora_r,
+    bias="none",
+    task_type="CAUSAL_LM",
+)
+
+# Set training parameters
+training_arguments = TrainingArguments(
+    output_dir=output_dir,
+    num_train_epochs=num_train_epochs,
+    per_device_train_batch_size=per_device_train_batch_size,
+    gradient_accumulation_steps=gradient_accumulation_steps,
+    optim=optim,
+    save_steps=save_steps,
+    logging_steps=logging_steps,
+    learning_rate=learning_rate,
+    weight_decay=weight_decay,
+    fp16=fp16,
+    bf16=bf16,
+    max_grad_norm=max_grad_norm,
+    max_steps=max_steps,
+    warmup_ratio=warmup_ratio,
+    group_by_length=group_by_length,
+    lr_scheduler_type=lr_scheduler_type,
     report_to="tensorboard"
 )
 
-# LoRA Config
-# reduce rank r if you're running out of vram
-peft_parameters = LoraConfig(
-    r=4,
-    lora_alpha=8,
-    lora_dropout=0.1,
-    bias="none",
-    task_type="CAUSAL_LM"
-)
-model = get_peft_model(base_model, peft_parameters)
-model.print_trainable_parameters()
-
-# Trainer with LoRA configuration
-fine_tuning = SFTTrainer(
-    model=base_model,
-    train_dataset=training_data,
-    peft_config=peft_parameters,
+# Set supervised fine-tuning parameters
+trainer = SFTTrainer(
+    model=model,
+    train_dataset=dataset,
+    peft_config=peft_config,
     dataset_text_field="text",
-    tokenizer=llama_tokenizer,
-    args=train_params
+    max_seq_length=max_seq_length,
+    tokenizer=tokenizer,
+    args=training_arguments,
+    packing=packing,
 )
 
-# Training
-fine_tuning.train()
+# Train model
+trainer.train()
 
-# Save Model
-fine_tuning.model.save_pretrained("llama-2-7b-enhanced")
-check_vram_usage()
-empty_cache()
+# Save trained model
+trainer.model.save_pretrained(new_model)
 
-# ==================================================================================================
-# Ideally this stuff should move at some point, just testing it works first.
+# Empty VRAM
+del model
+del trainer
+import gc
+torch.cuda.empty_cache()
+gc.collect()
+gc.collect()
 
 # Reload model in FP16 and merge it with LoRA weights
-# make sure that both models are available before running or else inference will not work
-base_model_name = "llama-2-7b-hf"
-new_model_name = "llama-2-7b-enhanced"
-
-
 base_model = AutoModelForCausalLM.from_pretrained(
-    base_model_name,
+    model_name,
     low_cpu_mem_usage=True,
     return_dict=True,
     torch_dtype=torch.float16,
-    device_map="auto"
+    device_map=device_map,
 )
-
-model = PeftModel.from_pretrained(base_model, new_model_name)
+model = PeftModel.from_pretrained(base_model, new_model)
 model = model.merge_and_unload()
 
 # Reload tokenizer to save it
-tokenizer = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
 tokenizer.pad_token = tokenizer.eos_token
 tokenizer.padding_side = "right"
-
-output_dir = "llama-2-7b-merged"
-model.save_pretrained(output_dir)
-tokenizer.save_pretrained(output_dir)
-
-# ==================================================================================================
-# This stuff should also move, this is for testing
-# getting the perplexity without vllm
-# seems right now that sampling params from vllm doesn't support logprobs for the prompt given
-
-# getting pp
-def calculate_perplexity(model, tokenizer, text, max_length=300):
-    """
-    Calculate the perplexity of a text using a language model.
-    
-    Args:
-        model: The language model
-        tokenizer: The tokenizer
-        text: Input text to evaluate
-        max_length: Maximum sequence length to process
-        
-    Returns:
-        float: The perplexity score
-    """
-    # Encode the text
-    encodings = tokenizer(text, return_tensors="pt", truncation=True, max_length=max_length)
-    
-    # Get input IDs and create target labels (shifted by 1)
-    input_ids = encodings.input_ids
-    target_ids = input_ids.clone()
-    
-    # Calculate loss with no gradient tracking
-    with torch.no_grad():
-        outputs = model(input_ids, labels=target_ids)
-        neg_log_likelihood = outputs.loss
-    
-    # Calculate perplexity
-    ppl = torch.exp(neg_log_likelihood)
-    loss = neg_log_likelihood
-    return ppl.item(), loss
-
-def evaluate_dataset(model, tokenizer, texts):
-    """
-    Calculate average perplexity across multiple texts.
-    
-    Args:
-        model: The language model
-        tokenizer: The tokenizer
-        texts: List of texts to evaluate
-        
-    Returns:
-        float: Average perplexity across all texts
-    """
-    perplexities = []
-    total_loss = []
-    for text in texts:
-        try:
-            ppl_and_loss = calculate_perplexity(model, tokenizer, text)
-            ppl = ppl_and_loss[0]
-            loss = ppl_and_loss[1]
-
-            perplexities.append(ppl)
-            total_loss.append(loss)
-
-        except Exception as e:
-            print(f"Error processing text: {e}")
-            continue
-    
-    return perplexities, total_loss
-
-model_path = "llama-2-7b-merged"
-
-model = AutoModelForCausalLM.from_pretrained(
-    model_path,
-    torch_dtype=torch.float16,
-    # need to 
-    device_map="auto",
-)
-
-tokenizer = AutoTokenizer.from_pretrained(model_path)
-
-test_set = [
-    "<s>[INST] Hello, how are you? [/INST] I'm doing fine thank you, I hope you're doing well too!</s>:",
-    "<s>[INST] Are you real?[/INST] I'm a model made out of billions of parameters so that I can form sentences like this.</s>:",
-]
-
-ppl_and_loss = evaluate_dataset(model, tokenizer, test_set)
-ppl = ppl_and_loss[0]
-loss = ppl_and_loss[1]
-
-print("Average perplexity: ", np.mean(ppl))
-print(ppl)
-print("Average loss: ", np.mean(loss))
-print(loss)
-
-## WRITING TO FILE OUTSIDE THE CONTAINER (NEEDS VOLUME TO BE MOUNTED)
-# Create the output directory if it doesn't exist
-out_dir = os.path.join(os.getcwd(), 'out')
-os.makedirs(out_dir, exist_ok=True)
-
-# Write the data to a file
-out_file = os.path.join(out_dir, 'metrics.txt')
-with open(out_file, 'w') as f:
-    f.write(f"Average perplexity: {np.mean(ppl)}\n")
-    f.write(f"{ppl}\n\n")
-    f.write(f"Average loss: {np.mean(loss)}\n")
-    f.write(f"{loss}\n")
-
-print(f"Data written to {out_file}")
-## END OF WRITING SECTION
-
-empty_cache()
-check_vram_usage()
-
-# ==================================================================================================
-# Can also put inference down here
