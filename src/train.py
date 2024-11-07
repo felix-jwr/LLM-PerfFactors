@@ -20,7 +20,7 @@ login(token = access_key)
 
 # Set the name of the model to train, the dataset to use, and the name of the new (fine-tuned) model
 model_name = "meta-llama/Llama-2-7b-chat-hf"
-dataset_name = "mlabonne/guanaco-llama2-1k"
+dataset_name = "openai/gsm8k"
 new_model = "../llama-2-7b-ft-weights"
 
 ################################################################################
@@ -60,7 +60,7 @@ optim = "paged_adamw_32bit"         # Optimizer to use (AdamW, PagedAdamW, etc.)
 lr_scheduler_type = "cosine"        # Learning rate schedule
 max_steps = -1                      # Number of training steps (overrides num_train_epochs)
 warmup_ratio = 0.03                 # Ratio of steps for a linear warmup (from 0 to learning rate)
-group_by_length = True              # Group sequences into batches with same length. Saves memory and speeds up training
+group_by_length = False             # Group sequences into batches with same length. Saves memory and speeds up training
 save_steps = 0                      # Save checkpoint every X updates steps (0 to disable)
 logging_steps = 25                  # Log every X updates steps (0 to disable)
 
@@ -69,7 +69,7 @@ logging_steps = 25                  # Log every X updates steps (0 to disable)
 ################################################################################
 
 max_seq_length = None               # Maximum sequence length to use
-packing = False                     # Pack multiple short examples in the same input sequence to increase efficiency
+packing = True                      # Pack multiple short examples in the same input sequence to increase efficiency
 device_map = "auto"                 # Where to load the model (auto, cuda:0, etc.)
 
 ################################################################################
@@ -77,7 +77,19 @@ device_map = "auto"                 # Where to load the model (auto, cuda:0, etc
 ################################################################################
 
 # Load dataset (you can process it here)
-dataset = load_dataset(dataset_name, split="train")
+dataset = load_dataset(dataset_name, "main")
+train_data = dataset["train"]
+# test_data = dataset["test"]
+# print(f"Training data shape: {train_data.shape}, Test data shape: {test_data.shape}")
+
+# Pre-process dataset
+# Combine question and answer into a singe text field, allows for `group_by_length` batching and packing (efficiency)
+def combine_text(examples):
+    return {"text": examples["question"] + " " + examples["answer"]}
+
+# Apply pre-processing
+# Note this MAY (insufficicent testing) reduce model performance, so need to weigh efficiency vs. performance
+train_data = train_data.map(combine_text)
 
 # Load tokenizer and model with QLoRA configuration
 compute_dtype = getattr(torch, bnb_4bit_compute_dtype)
@@ -143,7 +155,7 @@ training_arguments = TrainingArguments(
 # Set supervised fine-tuning (SFT) parameters
 trainer = SFTTrainer(
     model=model,
-    train_dataset=dataset,
+    train_dataset=train_data,
     peft_config=peft_config,
     dataset_text_field="text",
     max_seq_length=max_seq_length,
@@ -155,36 +167,17 @@ trainer = SFTTrainer(
 # Check VRAM usage after loading everything
 check_vram_usage(plot=False)
 
+################################################################################
+# Training and Validation
+################################################################################
+
+# # Evaluate model
+# eval_results = trainer.evaluate()
+# print(eval_results)
+
 # Train model and save
 trainer.train()
 trainer.model.save_pretrained(new_model)
 
 # Empty VRAM
 empty_vram(model=model, trainer=trainer)
-
-################################################################################
-# Merge LoRA weights with base model
-################################################################################
-
-# Reload model in FP16 and merge it with LoRA weights
-base_model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    low_cpu_mem_usage=True,
-    return_dict=True,
-    torch_dtype=torch.float16,
-    device_map=device_map,
-)
-model = PeftModel.from_pretrained(base_model, new_model)
-model = model.merge_and_unload()
-
-# Reload tokenizer to save it
-tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-tokenizer.pad_token = tokenizer.eos_token
-tokenizer.padding_side = "right"
-
-merged_model_dir = "../ft-model-merged"
-model.save_pretrained(merged_model_dir)
-tokenizer.save_pretrained(merged_model_dir)
-
-# Empty VRAM
-empty_vram(model=model, trainer=None)

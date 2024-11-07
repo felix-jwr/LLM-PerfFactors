@@ -10,12 +10,20 @@ import pynvml
 import numpy as np
 import matplotlib.pyplot as plt
 
+####################################################################################################
+# Memory Management
+####################################################################################################
 
 def check_vram_usage(plot=False):
     """
     Check the current VRAM usage using pynvml.
 
-    return: List of VRAM usage for each GPU.
+    Args:
+        plot: Whether to plot the VRAM usage.
+        return: List of VRAM usage for each GPU.
+
+    Returns:
+        List: VRAM usage for each GPU.
     """
 
     # Initialize NVIDIA Management Library
@@ -46,14 +54,85 @@ def empty_vram(model=None, trainer=None):
     """
     Empty the VRAM by deleting all variables and running garbage collection.
 
-    model: Model to delete.
-    trainer: Trainer to delete.
-    return: None.
+    Args:
+        model: Model to delete.
+        trainer: Trainer to delete.
+
+    Returns:
+        None
     """
 
-    del model
-    del trainer
-    import gc
+    try:
+        del model
+        del trainer
+    except:
+        pass
+
     torch.cuda.empty_cache()
     gc.collect()
     gc.collect()
+
+####################################################################################################
+# Metrics
+####################################################################################################
+
+def get_single_perplexity(model, tokenizer, text, max_length=300):
+    """
+    Calculate the perplexity of a text using a language model.
+    
+    Args:
+        model: The language model.
+        tokenizer: The tokenizer.
+        text: Input text to evaluate.
+        max_length: Maximum sequence length to process.
+        
+    Returns:
+        float: The perplexity score.
+    """
+
+    # Encode the text
+    encodings = tokenizer(text, return_tensors="pt", truncation=True, max_length=max_length)
+    
+    # Get input IDs and create target labels (shifted by 1)
+    input_ids = encodings.input_ids
+    target_ids = input_ids.clone()
+    
+    # Calculate loss with no gradient tracking
+    with torch.no_grad():
+        outputs = model(input_ids, labels=target_ids)
+        neg_log_likelihood = outputs.loss
+    
+    # Calculate perplexity
+    ppl = torch.exp(neg_log_likelihood)
+    loss = neg_log_likelihood
+
+    return ppl.item(), loss
+
+
+def evaluate_perplexity(model, tokenizer, texts):
+    """
+    Calculate average perplexity across multiple texts.
+    
+    Args:
+        model: The language model
+        tokenizer: The tokenizer
+        texts: List of texts to evaluate
+        
+    Returns:
+        float: Average perplexity across all texts
+    """
+
+    perplexities = []
+    total_loss = []
+
+    for text in texts:
+        try:
+            perplexity, loss = get_single_perplexity(model, tokenizer, text)
+            perplexities.append(perplexity)
+            total_loss.append(loss)
+
+        except Exception as e:
+            print(f"Error processing text: {e}")
+            continue
+    
+    return perplexities, total_loss

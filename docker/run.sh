@@ -1,3 +1,4 @@
 #!/bin/bash
 cd /app/src
-python3 train.py
+# tensorboard --logdir=logs --host=8008:8008
+python3 test.py
