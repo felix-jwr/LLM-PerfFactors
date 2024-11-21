@@ -14,6 +14,10 @@ from huggingface_hub import login
 from peft import LoraConfig, PeftModel
 from util import empty_vram, check_vram_usage
 
+################################################################################
+# Dataset
+################################################################################
+
 # Login to HF
 access_key = open('access_token.txt','r').read()
 login(token = access_key)
@@ -23,81 +27,22 @@ model_name = "meta-llama/Llama-2-7b-chat-hf"
 dataset_name = "openai/gsm8k"
 new_model = "../llama-2-7b-ft-weights"
 
-################################################################################
-# QLoRA parameters
-################################################################################
-
-lora_r = 64                         # LoRA attention dimension
-lora_alpha = 16                     # Alpha parameter for LoRA scaling
-lora_dropout = 0.1                  # Dropout probability for LoRA layers
-
-################################################################################
-# bitsandbytes parameters
-################################################################################
-
-use_4bit = True                     # Activate 4-bit precision base model loading
-bnb_4bit_compute_dtype = "float16"  # Compute dtype for 4-bit base models
-bnb_4bit_quant_type = "nf4"         # Quantization type (fp4 or nf4)
-use_nested_quant = False            # Activate nested quantization for 4-bit base models (double quantization)
-
-################################################################################
-# TrainingArguments parameters
-################################################################################
-
-
-output_dir = "../results"           # Output directory where the model predictions and checkpoints will be stored
-num_train_epochs = 1                # Number of training epochs
-fp16 = False                        # Enable fp16/bf16 training (set bf16 to True with an A100)
-bf16 = False
-per_device_train_batch_size = 4     # Batch size per GPU for training
-per_device_eval_batch_size = 4      # Batch size per GPU for evaluation
-gradient_accumulation_steps = 1     # Number of update steps to accumulate the gradients for
-gradient_checkpointing = True       # Enable gradient checkpointing
-max_grad_norm = 0.3                 # Maximum gradient normal (gradient clipping)
-learning_rate = 2e-4                # Initial learning rate (AdamW optimizer)
-weight_decay = 0.001                # Weight decay to apply to all layers except bias/LayerNorm weights
-optim = "paged_adamw_32bit"         # Optimizer to use (AdamW, PagedAdamW, etc.)
-lr_scheduler_type = "cosine"        # Learning rate schedule
-max_steps = -1                      # Number of training steps (overrides num_train_epochs)
-warmup_ratio = 0.03                 # Ratio of steps for a linear warmup (from 0 to learning rate)
-group_by_length = False             # Group sequences into batches with same length. Saves memory and speeds up training
-save_steps = 0                      # Save checkpoint every X updates steps (0 to disable)
-logging_steps = 25                  # Log every X updates steps (0 to disable)
-
-################################################################################
-# SFT parameters
-################################################################################
-
-max_seq_length = None               # Maximum sequence length to use
-packing = True                      # Pack multiple short examples in the same input sequence to increase efficiency
-device_map = "auto"                 # Where to load the model (auto, cuda:0, etc.)
-
-################################################################################
-# Load Dataset
-################################################################################
-
-# Load dataset (you can process it here)
+# Load dataset
 dataset = load_dataset(dataset_name, "main")
-train_data = dataset["train"]
-# test_data = dataset["test"]
-# print(f"Training data shape: {train_data.shape}, Test data shape: {test_data.shape}")
+train_dataset = dataset["train"]
 
-# Pre-process dataset
-# Combine question and answer into a singe text field, allows for `group_by_length` batching and packing (efficiency)
-def combine_text(examples):
-    return {"text": examples["question"] + " " + examples["answer"]}
+################################################################################
+#  Tokenisation
+################################################################################
 
-# Apply pre-processing
-# Note this MAY (insufficicent testing) reduce model performance, so need to weigh efficiency vs. performance
-train_data = train_data.map(combine_text)
-
-# Load tokenizer and model with QLoRA configuration
-compute_dtype = getattr(torch, bnb_4bit_compute_dtype)
+# Load tokeniser and model with QLoRA configuration
+use_4bit = True                     # Activate 4-bit precision base model loading
+compute_dtype = getattr(torch, "float16")
 bnb_config = BitsAndBytesConfig(
-    load_in_4bit=use_4bit,
-    bnb_4bit_quant_type=bnb_4bit_quant_type,
-    bnb_4bit_compute_dtype=compute_dtype,
-    bnb_4bit_use_double_quant=use_nested_quant,
+    load_in_4bit=use_4bit,  # Activate 4-bit precision base model loading
+    bnb_4bit_quant_type="nf4",  # Quantisation type (fp4 or nf4)
+    bnb_4bit_compute_dtype="float16",   # Compute dtype for 4-bit base models
+    bnb_4bit_use_double_quant=False, # Activate nested quantisation for 4-bit base models (double quant)
 )
 
 # Check GPU compatibility with bfloat16
@@ -112,68 +57,68 @@ if compute_dtype == torch.float16 and use_4bit:
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
     quantization_config=bnb_config,
-    device_map=device_map
+    device_map="auto"
 )
 model.config.use_cache = False
 model.config.pretraining_tp = 1
 
-# Load LLaMA tokenizer
-tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-tokenizer.pad_token = tokenizer.eos_token
-tokenizer.padding_side = "right" # Fix weird overflow issue with fp16 training
+# Load LLaMA tokeniser
+tokeniser = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+tokeniser.pad_token = tokeniser.eos_token
+tokeniser.padding_side = "right" # Fix weird overflow issue with fp16 training
 
 # Load LoRA configuration
 peft_config = LoraConfig(
-    lora_alpha=lora_alpha,
-    lora_dropout=lora_dropout,
-    r=lora_r,
+    lora_alpha=16,  # Alpha parameter for LoRA scaling
+    lora_dropout=0.1,  # Dropout probability for LoRA layers
+    r=64,   # LoRA attention dimension
     bias="none",
     task_type="CAUSAL_LM",
 )
 
+# Get max token length
+max_tokens = max(len(tokeniser.encode(q + a)) for q, a in zip(train_dataset["question"], train_dataset["answer"]))
+print(f"Max tokens: {max_tokens}")
+
+################################################################################
+# Training
+################################################################################
+
 # Set training parameters
 training_arguments = TrainingArguments(
-    output_dir=output_dir,
-    num_train_epochs=num_train_epochs,
-    per_device_train_batch_size=per_device_train_batch_size,
-    gradient_accumulation_steps=gradient_accumulation_steps,
-    optim=optim,
-    save_steps=save_steps,
-    logging_steps=logging_steps,
-    learning_rate=learning_rate,
-    weight_decay=weight_decay,
-    fp16=fp16,
-    bf16=bf16,
-    max_grad_norm=max_grad_norm,
-    max_steps=max_steps,
-    warmup_ratio=warmup_ratio,
-    group_by_length=group_by_length,
-    lr_scheduler_type=lr_scheduler_type,
+    output_dir="../results",    # Output directory where the model predictions and checkpoints will be stored
+    num_train_epochs=1, # Number of training epochs
+    per_device_train_batch_size=4,    # Batch size per GPU for training
+    gradient_accumulation_steps=4,    # Batch size per GPU for evaluation
+    optim="paged_adamw_32bit",  # Optimizer to use (AdamW, PagedAdamW, etc.)
+    save_steps=0,  # Save checkpoint every X updates steps (0 to disable)
+    logging_steps=25,   # Log every X updates steps (0 to disable)
+    learning_rate=2e-4, # Initial learning rate (AdamW optimizer)
+    weight_decay=0.001, # Weight decay to apply to all layers except bias/LayerNorm weights
+    fp16=False,  # Enable fp16 training
+    bf16=False,  # Enably bf16 training (set to True with an A100)
+    max_grad_norm=0.3,  # Maximum gradient normal (gradient clipping)
+    max_steps=-1,    # Number of training steps (overrides num_train_epochs)
+    warmup_ratio=0.03,  # Ratio of steps for a linear warmup (from 0 to learning rate)
+    group_by_length=False,    # Group sequences into batches with same length. Saves mem and speeds up train
+    lr_scheduler_type="cosine", # Learning rate schedule
     report_to="tensorboard"
 )
 
 # Set supervised fine-tuning (SFT) parameters
 trainer = SFTTrainer(
     model=model,
-    train_dataset=train_data,
+    train_dataset=train_dataset,
     peft_config=peft_config,
-    dataset_text_field="text",
-    max_seq_length=max_seq_length,
-    tokenizer=tokenizer,
+    dataset_text_field="answer",    # Only tokenise the answer text, and predict only on answer tokens
+    max_seq_length=max_tokens,
+    tokenizer=tokeniser,
     args=training_arguments,
-    packing=packing,
+    packing=True,
 )
 
 # Check VRAM usage after loading everything
 check_vram_usage(plot=False)
-
-################################################################################
-# Training and Validation
-################################################################################
-
-# # Evaluate model
-# eval_results = trainer.evaluate()
-# print(eval_results)
 
 # Train model and save
 trainer.train()
