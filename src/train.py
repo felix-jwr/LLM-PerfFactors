@@ -1,3 +1,4 @@
+import os
 import torch
 from trl import SFTTrainer
 from transformers import (
@@ -19,7 +20,7 @@ from util import empty_vram, check_vram_usage
 ################################################################################
 
 # Login to HF
-access_key = open('access_token.txt','r').read()
+access_key = os.environ['API_TOKEN']
 login(token = access_key)
 
 # Set the name of the model to train, the dataset to use, and the name of the new (fine-tuned) model
@@ -78,7 +79,7 @@ peft_config = LoraConfig(
 
 # Get max token length
 max_tokens = max(len(tokeniser.encode(q + a)) for q, a in zip(train_dataset["question"], train_dataset["answer"]))
-print(f"Max tokens: {max_tokens}")
+print(f"\nMax tokens: {max_tokens}")
 
 ################################################################################
 # Training
@@ -123,6 +124,7 @@ check_vram_usage(plot=False)
 # Train model and save
 trainer.train()
 trainer.model.save_pretrained(new_model)
+tokeniser.save_pretrained(new_model)
 
 # Empty VRAM
 empty_vram(model=model, trainer=trainer)
