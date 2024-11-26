@@ -1,24 +1,15 @@
 import torch
-# from trl import SFTTrainer
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    # BitsAndBytesConfig,
-    # HfArgumentParser,
-    # TrainingArguments,
-    # pipeline,
-    # logging,
 )
 from datasets import load_dataset
-# from huggingface_hub import login
-from peft import (
-    PeftModel,
-    # LoraConfig,
-)
+from peft import PeftModel
 from util import empty_vram
 
 
-def merge_weights_with_model(model_name="meta-llama/Llama-2-7b-chat-hf" , device_map="auto", output_dir="../ft-model-merged"):
+def merge_weights_with_model(base_model_name="meta-llama/Llama-2-7b-chat-hf" , ft_weights_dir="../llama-2-7b-ft-weights",
+                             device_map="auto", save=False, output_dir="../ft-model-merged"):
     """
     Merge LoRA weights with base model and save the merged model.
 
@@ -29,23 +20,27 @@ def merge_weights_with_model(model_name="meta-llama/Llama-2-7b-chat-hf" , device
     Returns: 
         str: Directory where the merged model is saved.
     """
+
+    # Reload tokeniser
+    tokeniser = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
+    tokeniser.pad_token = tokeniser.eos_token
+    tokeniser.padding_side = "right"
+
     # Reload model in FP16 and merge it with LoRA weights
     base_model = AutoModelForCausalLM.from_pretrained(
-        model_name,
+        base_model_name,
         low_cpu_mem_usage=True,
         return_dict=True,
         torch_dtype=torch.float16,
         device_map=device_map,
     )
-    model = PeftModel.from_pretrained(base_model, output_dir)
-    model = model.merge_and_unload()
 
-    # Reload tokenizer to save it
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    tokenizer.pad_token = tokenizer.eos_token
-    tokenizer.padding_side = "right"
+    # Merge fine-tuned model with base model
+    merged_model = PeftModel.from_pretrained(base_model, ft_weights_dir)
+    merged_model = merged_model.merge_and_unload()
 
-    model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
+    if save:
+        merged_model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
 
-    return output_dir
+    return merged_model, tokeniser, output_dir

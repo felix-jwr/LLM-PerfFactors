@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import torch
@@ -6,134 +7,165 @@ import datetime
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    HfArgumentParser,
-    BitsAndBytesConfig,
-    pipeline,
-    logging,
+    StoppingCriteriaList
 )
+from util import (
+    empty_vram, 
+    check_vram_usage, 
+    extract_ground_truth_gsm8k,
+    extract_predicted_gsm8k,
+    SpecificStringStoppingCriteria,
+    generate_model_answer,
+    process_model_answers
+)
+from tqdm import tqdm
 from datasets import load_dataset
 from huggingface_hub import login
-from vllm import LLM, SamplingParams
-from peft import LoraConfig, PeftModel
-from util import empty_vram, check_vram_usage, evaluate_perplexity
+from merge import merge_weights_with_model
 
-################################################################################
-# Dataset
-################################################################################
+
+FEW_SHOT_PROMPT = """Q: There are 15 trees in the grove. Grove workers will plant trees in the grove today. After they are done, there will be 21 trees. How many trees did the grove workers plant today?
+A: There are 15 trees originally. Then there were 21 trees after some more were planted. So there must have been 21 - 15 = 6. The answer is 6.
+
+Q: If there are 3 cars in the parking lot and 2 more cars arrive, how many cars are in the parking lot?
+A: There are originally 3 cars. 2 more cars arrive. 3 + 2 = 5. The answer is 5.
+
+Q: Leah had 32 chocolates and her sister had 42. If they ate 35, how many pieces do they have left in total?
+A: Originally, Leah had 32 chocolates. Her sister had 42. So in total they had 32 + 42 = 74. After eating 35, they had 74 - 35 = 39. The answer is 39.
+
+Q: Jason had 20 lollipops. He gave Denny some lollipops. Now Jason has 12 lollipops. How many lollipops did Jason give to Denny?
+A: Jason started with 20 lollipops. Then he had 12 after giving some to Denny. So he gave Denny 20 - 12 = 8. The answer is 8.
+
+Q: Shawn has five toys. For Christmas, he got two toys each from his mom and dad. How many toys does he have now?
+A: Shawn started with 5 toys. If he got 2 toys each from his mom and dad, then that is 4 more toys. 5 + 4 = 9. The answer is 9.
+
+Q: There were nine computers in the server room. Five more computers were installed each day, from monday to thursday. How many computers are now in the server room?
+A: There were originally 9 computers. For each of 4 days, 5 more computers were added. So 5 * 4 = 20 computers were added. 9 + 20 is 29. The answer is 29.
+
+Q: Michael had 58 golf balls. On tuesday, he lost 23 golf balls. On wednesday, he lost 2 more. How many golf balls did he have at the end of wednesday?
+A: Michael started with 58 golf balls. After losing 23 on tuesday, he had 58 - 23 = 35. After losing 2 more, he had 35 - 2 = 33 golf balls. The answer is 33.
+
+Q: Olivia has $23. She bought five bagels for $3 each. How much money does she have left?
+A: Olivia had 23 dollars. 5 bagels for 3 dollars each will be 5 x 3 = 15 dollars. So she has 23 - 15 dollars left. 23 - 15 is 8. The answer is 8.
+
+Q: {question}
+A:"""
+
+ZERO_SHOT_PROMPT = """Q: {question}
+A:"""
+
+# Set the random seed for reproducibility
+random_seed=42
+torch.manual_seed(random_seed)
+use_base = True
 
 # Login to HF
 access_key = os.environ['API_TOKEN']
 login(token = access_key)
-
-# Set the name of the base model, the dataset to use
 base_model_name = "meta-llama/Llama-2-7b-chat-hf"
- 
-# Load the dataset
-def auto_load_dataset(dataset_name, split):
-    dataset = load_dataset(dataset_name, split)
-    return dataset
-test_dataset = (auto_load_dataset("openai/gsm8k", "main"))["test"]
+ft_weights_dir = "../llama-2-7b-ft-weights"
+ft_model_name = "meta-llama/Llama-2-7b-chat-hf-ft-gsm8k"
 
-################################################################################
-# Merged Model
-################################################################################
-
-# Name of fine-tuned model and the merged model
-ft_model_dir = "../llama-2-7b-ft-weights"
-merged_model_dir = "../llama-2-7b-ft-merged"
-
-if not os.path.exists(ft_model_dir):
-    # Load the base model
-    base_model = AutoModelForCausalLM.from_pretrained(
-        base_model_name,
-        low_cpu_mem_usage=True,
-        return_dict=True,
-        torch_dtype=torch.float16,
-        device_map="auto"
-    )
-
-    # Merge fine-tuned model with base model
-    merged_model = PeftModel.from_pretrained(base_model, ft_model_dir)
-    merged_model = merged_model.merge_and_unload()
-
-    # Reload tokenizer to save it
+# Either load the base model or the fine-tuned model
+if use_base:
     tokeniser = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
     tokeniser.pad_token = tokeniser.eos_token
     tokeniser.padding_side = "right"
 
-    # Save the merged model
-    merged_model.save_pretrained(merged_model_dir)
-    tokeniser.save_pretrained(merged_model_dir)
+    model = AutoModelForCausalLM.from_pretrained(
+        base_model_name,
+        torch_dtype=torch.float16,
+        device_map="auto"
+    )
 
-    # Get max token length
-    max_tokens = max(len(tokeniser.encode(q + a)) for q, a in zip(test_dataset["question"], test_dataset["answer"]))
-    print(f"\nMax tokens: {max_tokens}")
+    model_name = base_model_name
+else:
+    model, tokeniser, _ = merge_weights_with_model(base_model_name=base_model_name , ft_weights_dir=ft_weights_dir)
+    model_name = ft_model_name
+ 
+# Load the dataset
+print("\nLoading dataset...")
+dataset = load_dataset("openai/gsm8k", "main")
+dataset = dataset["test"]
+datasize = len(dataset)
+print('\nTest set size:', datasize)
+
+# Define a stopping condition for generation
+generation_util = [
+    "Q:",
+    "</s>",
+    "<|im_end|>"
+]
 
 ################################################################################
 # Inference
 ################################################################################
 
-def save_outputs(outputs, questions, answers, model_path):
-    # Generate a timestamp
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Create the filename with the date, time, and model path
-    filename = f"../results/{timestamp}_{model_path.replace('/', '_')}_outputs.json"
-    
-    # Create a list of dictionaries to store the results
+def run_inference(model, tokeniser, prompt_template):
     results = []
-    for q, a, o in zip(questions, answers, outputs):
+
+    for i in tqdm(range(datasize), desc='Evaluating'):
+        current_example = dataset[i]
+
+        # Run the prompt through the model
+        input_text = prompt_template.format(question=current_example['question'])
+        stop_criteria = SpecificStringStoppingCriteria(tokeniser, generation_util, len(input_text))
+        stopping_criteria_list = StoppingCriteriaList([stop_criteria])
+
+        # Generate answers
+        model_answers = [generate_model_answer(
+            model, tokeniser, input_text, stopping_criteria_list
+        )]
+
+        # Extract answers
+        majority_answer, numeric_answers = process_model_answers(model_answers)
+
+        # Generate results
+        ground_truth_answer = extract_ground_truth_gsm8k(current_example['answer'])
+        correct = (majority_answer == ground_truth_answer) if majority_answer is not None else False
         results.append({
-            "Question": q,
-            "Answer": a,
-            "Output": o.outputs[0].text
+            'question': current_example['question'],
+            'gold_answer_text': current_example['answer'],
+            'model_answers_text': [ma['text'] for ma in model_answers],
+            'extracted_model_answers': numeric_answers,
+            'extracted_gold_answer': ground_truth_answer,
+            'majority_answer': majority_answer,
+            'correct': correct
         })
-    
-    # Save the results to a JSON file
-    with open(filename, "w") as f:
+
+    return results
+
+################################################################################
+# Evaluation
+################################################################################
+
+def eval(model, tokeniser, prompt_type="few_shot", prompt_template=FEW_SHOT_PROMPT):
+    # Run Few-Shot
+    results = run_inference(model, tokeniser, prompt_template)
+
+    # Get accuracy
+    count = 0
+    for result in results:
+        if result['correct']:
+            count += 1
+            
+    total = len(results)
+    print(f"Accuracy: {count} / {total} = {count / total :.4f}")
+    results.append({'accuracy': count / total})
+
+    # Save results
+    os.makedirs(f"../results/{model_name}/{prompt_type}", exist_ok=True)
+    result_file = f"../results/{model_name}/{prompt_type}/{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_results.json"
+
+    with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)
-    
-    print(f"Saved outputs to {filename}")
 
-def run_inference(model_path, tokeniser_path, test_dataset):
-    # Initialise VLLM with current model
-    llm = LLM(
-        model=model_path,
-        tensor_parallel_size=torch.cuda.device_count(),
-        tokenizer=tokeniser_path,
-        trust_remote_code=True,
-    )
+    print(f"Results saved to {result_file}")
 
-    # Set sampling parameters for generating responses
-    sampling_parameters = SamplingParams(
-        temperature=0.7,
-        top_p=0.9,
-        max_tokens=None,
-        stop=["</s>"],  # Stop token for llama models
-        logprobs=True,
-    )
+# Run Few-Shot Evaluation
+# print("Evaluting FEW-SHOT")
+# eval(model, tokeniser, "few_shot", FEW_SHOT_PROMPT)
 
-    # Generate responses for each question
-    print(f"\n{'#' * 80}\n{model_path} Inference\n{'#' * 80}\n")
-    questions = test_dataset["question"]
-    answers = test_dataset["answer"]
-    outputs = llm.generate(questions, sampling_parameters)
-
-    return outputs, questions, answers
-
-
-# Run inference on base model
-test_dataset = (auto_load_dataset("openai/gsm8k", "main"))["test"]
-outputs, questions, answers = run_inference(base_model_name, base_model_name, test_dataset)
-save_outputs(outputs, questions, answers, base_model_name)
-time.sleep(5)   # Sleep to allow VRAM to empty
-empty_vram()
-
-# TODO: Clean up tokeniser to avoid crashing due to fork error
-
-# Run inference on fine-tuned model
-test_dataset = (auto_load_dataset("openai/gsm8k", "main"))["test"]
-outputs, questions, answers = run_inference(merged_model_dir, merged_model_dir, test_dataset)
-save_outputs(outputs, questions, answers, merged_model_dir)
-time.sleep(5)
-empty_vram()
+# Run Zero-Shot Evaluation
+print("Evaluting ZERO-SHOT")
+eval(model, tokeniser, "zero_shot", ZERO_SHOT_PROMPT)

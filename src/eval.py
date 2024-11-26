@@ -2,6 +2,8 @@ import re
 import json
 import numpy as np
 
+# TODO: This file may become deprecated with updates to test.py
+
 ################################################################################
 # Load the json files
 ################################################################################
@@ -14,7 +16,6 @@ def load_json(file):
 # Load results
 base_model_results = load_json("../results/20241121_144627_meta-llama_Llama-2-7b-chat-hf_outputs.json")
 merged_model_results = load_json("../results/20241121_145010_.._llama-2-7b-ft-merged_outputs.json")
-
 
 ################################################################################
 # Extract the answers

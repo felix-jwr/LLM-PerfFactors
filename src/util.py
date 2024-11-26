@@ -4,11 +4,14 @@ Mostly useful for VRAM management, logging, and file I/O.
 """
 
 import gc
+import re
 import os
 import torch
 import pynvml
 import numpy as np
+from collections import Counter
 import matplotlib.pyplot as plt
+from transformers import StoppingCriteria
 
 ####################################################################################################
 # Memory Management
@@ -71,6 +74,132 @@ def empty_vram(model=None, trainer=None):
     torch.cuda.empty_cache()
     gc.collect()
     gc.collect()
+
+####################################################################################################
+# Extract results
+####################################################################################################
+
+def extract_ground_truth_gsm8k(text):
+    """
+    Extract the ground truth from a GSM8k example.
+
+    Args:
+        text: Example to process.
+
+    Returns:
+        float: The ground truth from the text.
+    """
+    return text.split("####")[-1].strip()
+
+def extract_predicted_gsm8k(text):
+    """
+    Extract the model prediction generated from a GSM8k example using regular expressions.
+
+    Args:
+        text: Example to process.
+
+    Returns:
+        float: The extracted numerical output from the text.
+    """
+
+    regex_pattern = "(-?[$0-9.,]{2,})|(-?[0-9]+)"
+    regexes_to_ignore =[
+        ",",
+        "\\$",
+        "(?s).*#### ",
+        "\\.$"
+    ]
+    match = re.findall(regex_pattern, text)
+
+    if match:
+        match = match[-1]
+        if isinstance(match, tuple):
+            match = [m for m in match if m][0]
+        text = match.strip()
+
+        for regex in regexes_to_ignore:
+            text = re.sub(regex, "", text)
+        return text
+    else:
+        return None
+
+####################################################################################################
+# Generation
+####################################################################################################
+
+class SpecificStringStoppingCriteria(StoppingCriteria):
+    """
+    Stopping condition for generation on GSM8k. 
+    Taken from: https://github.com/tianlwang/eval_gsm8k/blob/main/utils.py
+
+    Args:
+        tokenizer: Tokeniser (usually AutoTokenizer).
+        stop_strings: List of stop strings to try.
+        input_len: Length of a given input.
+
+    Returns:
+        str: Stop string for the current text.
+    """
+    def __init__(self, tokenizer, stop_strings, input_len):
+        self.tokenizer = tokenizer
+        self.stop_strings = stop_strings
+        self.input_len = input_len
+
+    def __call__(self, input_ids, scores, **kwargs):
+        current_text = self.tokenizer.decode(input_ids[0], skip_special_tokens=True)[self.input_len:]
+        
+        return any(stop_string in current_text for stop_string in self.stop_strings)
+
+
+def generate_model_answer(model, tokeniser, input_text, stopping_criteria_list, max_new_tokens=512):
+    """
+    Generate model answer for a given input text.
+    
+    Args:
+        model: The language model.
+        tokeniser: Tokeniser for the model.
+        input_text: Input prompt string.
+        stopping_criteria_list: Custom stopping criteria.
+        max_new_tokens: Maximum number of new tokens to generate. Defaults to 512.
+    
+    Returns:
+        dict: A dictionary containing the full output text and extracted numeric answer.
+    """
+    inputs = tokeniser(input_text, return_tensors='pt').to(model.device)
+    
+    with torch.no_grad():
+        outputs = model.generate(
+            **inputs, 
+            max_new_tokens=max_new_tokens, 
+            pad_token_id=tokeniser.eos_token_id, 
+            stopping_criteria=stopping_criteria_list
+        )
+    
+    # Extract the final answer from the model's output
+    output_text = tokeniser.decode(outputs[0], skip_special_tokens=True)
+    output_text = output_text.split("A:")[-1].strip()
+    
+    # Get the number out of the answer
+    model_answer = extract_predicted_gsm8k(output_text)
+    
+    return {'text': output_text, 'numeric': model_answer}
+
+
+def process_model_answers(model_answers):
+    """
+    Process model answers to get majority answer.
+    
+    Args:
+        model_answers: List of model answer dictionaries.
+    
+    Returns:
+        tuple: Majority answer and filtered numeric answers.
+    """
+    numeric_answers = [ma['numeric'] for ma in model_answers]
+    filtered_answers = [num for num in numeric_answers if num is not None]
+    majority_answer = Counter(filtered_answers).most_common(1)[0][0] if filtered_answers else None
+    
+    return majority_answer, numeric_answers
 
 ####################################################################################################
 # Metrics
