@@ -2,6 +2,7 @@ import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    BitsAndBytesConfig
 )
 from datasets import load_dataset
 from peft import PeftModel
@@ -21,6 +22,13 @@ def merge_weights_with_model(base_model_name="meta-llama/Llama-2-7b-chat-hf" , f
         str: Directory where the merged model is saved.
     """
 
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=use_4bit,  # Activate 4-bit precision base model loading
+        bnb_4bit_quant_type="nf4",  # Quantisation type (fp4 or nf4)
+        bnb_4bit_compute_dtype="float16",   # Compute dtype for 4-bit base models
+        bnb_4bit_use_double_quant=False, # Activate nested quantisation for 4-bit base models (double quant)
+    )
+
     # Reload tokeniser
     tokeniser = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
     tokeniser.pad_token = tokeniser.eos_token
@@ -33,6 +41,7 @@ def merge_weights_with_model(base_model_name="meta-llama/Llama-2-7b-chat-hf" , f
         return_dict=True,
         torch_dtype=torch.float16,
         device_map=device_map,
+        quantization_config=bnb_config,
     )
 
     # Merge fine-tuned model with base model

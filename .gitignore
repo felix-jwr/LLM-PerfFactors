@@ -168,6 +168,7 @@ cython_debug/
 src/access_token.txt
 ft-model-merged/
 llama-2-7b-ft-weights/
+opencoder-ft-weights/
 
 # Docker
 docker/Dockerfile

@@ -1,5 +1,6 @@
 #!/bin/bash
 cd /app/src
-# tensorboard --logdir=logs --host=8008:8008
 # python3 train.py
-python3 test.py
+# python3 test.py
+# python3 -u train.py 2>&1 | tee ../results/train_output.log
+python3 -u test.py 2>&1 | tee ../results/test_output.log
