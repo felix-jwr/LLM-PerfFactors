@@ -134,6 +134,9 @@ def generate_n_shot_prompt(n_shot_data, n, question):
         prompts.append({"role": "user", "content": question_prompt(question_and_answer["question"])})
         prompts.append({"role": "assistant", "content": answer_prompt(question_and_answer["answer"])})
 
-    prompts.append({"role": "user", "content": question_prompt(question) + " Let's think step by step. At the end, you MUST write the answer as an integer after '####'."})
+    # CoT Prompt
+    # prompts.append({"role": "user", "content": question_prompt(question) + " Let's think step by step. At the end, you MUST write the answer as an integer after '####'."})
+    # No CoT
+    prompts.append({"role": "user", "content": question_prompt(question) + " You MUST write the answer as an integer after '####'."})
 
     return prompts

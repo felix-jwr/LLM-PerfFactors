@@ -128,9 +128,9 @@ if __name__ == '__main__':
     n_shot_data = all_data['train']
     n_shot_data = n_shot_data.to_pandas()
     n_shot_data = n_shot_data.to_dict(orient='records')
-    
+
     # Evaluate model in 8-shot setting
-    print(f'EVALUATING {n_shot}-SHOT {model_name.upper()}')
+    print(f'EVALUATING 8-SHOT {model_name.upper()}')
     few_shot_results = eval(model, tokeniser, dataset, datasize, n_shot=8, n_shot_data=n_shot_data)
     save_results(few_shot_results, model_name, dataset_name='gsm8k', n_shot=8)
 
