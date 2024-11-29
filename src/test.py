@@ -1,5 +1,4 @@
 import os
-import json
 import torch
 from transformers import (
     AutoModelForCausalLM,
@@ -29,8 +28,6 @@ def load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use
     
     # Either load the base model or the fine-tuned model
     if use_base:
-
-
         tokeniser = AutoTokenizer.from_pretrained(base_model_name, trust_remote_code=True)
         tokeniser.pad_token = tokeniser.eos_token
         tokeniser.padding_side = 'right'
@@ -61,6 +58,7 @@ def run_inference(model, tokeniser, dataset, datasize, n_shot, n_shot_data):
             'text-generation',
             model=model,
             tokenizer=tokeniser,
+            max_new_tokens=1500,  # Changed for Llama 3.1-8B-Instruct
             pad_token_id=tokeniser.eos_token_id,
         )
     
@@ -112,7 +110,7 @@ if __name__ == '__main__':
     torch.manual_seed(random_seed)
 
     # Model details
-    base_model_name = 'meta-llama/Llama-2-7b-chat-hf'
+    base_model_name = 'meta-llama/Llama-3.1-8B-Instruct'
     ft_weights_dir = ''
     ft_model_name = ''
 
@@ -132,12 +130,13 @@ if __name__ == '__main__':
     n_shot_data = n_shot_data.to_dict(orient='records')
     
     # Evaluate model in 8-shot setting
-    print(f'EVALUATING ZERO-SHOT {model_name.upper()}')
+    print(f'EVALUATING {n_shot}-SHOT {model_name.upper()}')
     few_shot_results = eval(model, tokeniser, dataset, datasize, n_shot=8, n_shot_data=n_shot_data)
     save_results(few_shot_results, model_name, dataset_name='gsm8k', n_shot=8)
 
+    # TODO: Fix zero-shot prompting/answer extraction for llama 2 7b
     # Evaluate model in zero-shot setting
-    print(f'EVALUATING ZERO-SHOT {model_name.upper()}')
+    print(f'EVALUATING 0-SHOT {model_name.upper()}')
     zero_shot_results = eval(model, tokeniser, dataset, datasize, n_shot=0, n_shot_data=n_shot_data)
     save_results(zero_shot_results, model_name, dataset_name='gsm8k', n_shot=0)
 
