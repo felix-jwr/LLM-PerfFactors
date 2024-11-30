@@ -1,12 +1,11 @@
-FROM bath:2022-gpu
+FROM pytorch/pytorch:2.4.0-cuda12.1-cudnn9-runtime
 
 WORKDIR /app
 
-# COPY <src> <dest> copies files into the image, can do entire directories
 COPY ../src/ /app/src/
 COPY ../docker/ /app/docker/
 
-# RUN to install packages/modifications to the base image
+RUN pip install --upgrade pip
 RUN pip install -r /app/docker/requirements.txt
 
 # Make the script executable
@@ -16,7 +15,6 @@ RUN chmod +x /app/docker/run.sh
 RUN mkdir -p /app/.cache/huggingface /app/.config/matplotlib && \
     chown -R $(id -u):$(id -g) /app/.cache /app/.config
 
-# ENV key=value sets environment variables
 # Make folders to bypass permission issues
 ENV XDG_CACHE_HOME=/app/.cache
 ENV XDG_CONFIG_HOME=/app/.config
