@@ -101,6 +101,16 @@ def extract_answer(text, eos=None):
 
 def save_results(results, model_name, dataset_name, n_shot):
     """
+    Simple helper function to save a results json from a test run.
+
+    Args:
+        results: The dictionary of the results.
+        model_name: A string model name.
+        dataset_name: A string dataset name.
+        n_shot: The number of shots used in the testing scenario.
+
+    Returns:
+        None
     """
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     model_name = model_name.replace("/", "_")
@@ -119,6 +129,15 @@ def save_results(results, model_name, dataset_name, n_shot):
 
 def generate_n_shot_prompt(n_shot_data, n, question):
     """
+    Generate a prompt for the model with n example questions for an n-shot prompt.
+
+    Args:
+        n_shot_data: Training examples to use as n shots. Mustn't be from the test set.
+        n: The number of example questions to include. Must be > 0.
+        question: The actual prompt from the test set.
+
+    Returns:
+        string: The n-shot prompt for the model.
     """
 
     def question_prompt(string):
