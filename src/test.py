@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
     # Model details
     base_model_name = 'meta-llama/Llama-3.1-8B-Instruct'
-    ft_weights_dir = '../3.1-8B-gsm8k-ft-weights'
+    ft_weights_dir = '../3.1-8B-opencoder-ft-weights'
     ft_model_name = 'meta-llama/Llama-3.1-8B-Instruct'
 
     # Login to HF
