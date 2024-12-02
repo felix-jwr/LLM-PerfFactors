@@ -2,6 +2,7 @@ trl
 peft
 tqdm
 nvidia-ml-py
+matplotlib
 huggingface_hub
 vllm
 accelerate

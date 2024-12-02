@@ -111,8 +111,8 @@ if __name__ == '__main__':
 
     # Model details
     base_model_name = 'meta-llama/Llama-3.1-8B-Instruct'
-    ft_weights_dir = ''
-    ft_model_name = ''
+    ft_weights_dir = '../3.1-8B-gsm8k-ft-weights'
+    ft_model_name = 'meta-llama/Llama-3.1-8B-Instruct'
 
     # Login to HF
     access_key = os.environ['API_TOKEN']
@@ -122,7 +122,7 @@ if __name__ == '__main__':
     all_data = load_dataset('openai/gsm8k', 'main')
     dataset = all_data['test']
     datasize = len(dataset)
-    model, tokeniser, model_name = load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use_base=1)
+    model, tokeniser, model_name = load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use_base=False)
 
     # Set up prompting
     n_shot_data = all_data['train']

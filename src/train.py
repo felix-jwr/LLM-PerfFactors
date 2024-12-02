@@ -18,7 +18,7 @@ torch.manual_seed(random_seed)
 
 # Set the name of the model to train, and the name of the new (fine-tuned) model
 model_name = "unsloth/Meta-Llama-3.1-8B"
-new_model = "../3.1-8B-opencoder-ft-weights"
+new_model = "../3.1-8B-gsm8k-ft-weights"
 dtype = None    # Use None for auto-detection
 max_seq_length = 2048  # Choose any! We auto support RoPE Scaling internally!
 load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
@@ -33,7 +33,7 @@ model, tokeniser = FastLanguageModel.from_pretrained(
 
 model = FastLanguageModel.get_peft_model(
     model,
-    r = 16, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+    r = 64, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
     target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
                       "gate_proj", "up_proj", "down_proj",],
     lora_alpha = 16,
@@ -49,10 +49,6 @@ model = FastLanguageModel.get_peft_model(
 # Data Prep
 ################################################################################
 
-
-
-
-
 prompt = """Below is an instruction that describes a task. Write a response that appropriately completes the request.
 
 ### Instruction:
@@ -63,8 +59,8 @@ prompt = """Below is an instruction that describes a task. Write a response that
 
 EOS_TOKEN = tokeniser.eos_token # Must add EOS_TOKEN
 def formatting_prompts_func(examples):
-    instructions = examples["instruction"]
-    outputs      = examples["output"]
+    instructions = examples["question"]  # NOTE: This will need changing depending on the dataset.
+    outputs      = examples["answer"]
     texts = []
     for instruction, output in zip(instructions, outputs):
         # Must add EOS_TOKEN, otherwise your generation will go on forever!
@@ -78,8 +74,8 @@ access_key = os.environ['API_TOKEN']
 login(token = access_key)
 
 # Load dataset
-dataset_name = "OpenCoder-LLM/opc-sft-stage1"
-dataset = load_dataset(dataset_name, "realuser_instruct")
+dataset_name = "openai/gsm8k"
+dataset = load_dataset(dataset_name, "main", split="train")
 dataset = dataset.map(formatting_prompts_func, batched = True,) # Format the prompts using the above function
 
 # Legacy code for loading a subset of the dataset
@@ -101,11 +97,11 @@ dataset = dataset.map(formatting_prompts_func, batched = True,) # Format the pro
 
 # Set training parameters
 training_arguments = TrainingArguments(
-        per_device_train_batch_size = 2,
-        gradient_accumulation_steps = 4,
+        per_device_train_batch_size = 16,
+        gradient_accumulation_steps = 16,
         warmup_steps = 5,
         num_train_epochs = 1, # Set this for 1 full training run.
-        max_steps = -1, # Number of training steps (overrides num_train_epochs)
+        # max_steps = 8500, # Number of training steps (overrides num_train_epochs)
         learning_rate = 2e-4,
         fp16 = False,
         bf16 = True,
@@ -114,7 +110,7 @@ training_arguments = TrainingArguments(
         weight_decay = 0.01,
         lr_scheduler_type = "linear",
         seed = random_seed,
-        output_dir = f"../results/{model_name.replace("/", "_")}",
+        output_dir = f"../results/{model_name.replace('/', '_')}",
         report_to = "tensorboard", # Use this for WandB etc
     )
 
