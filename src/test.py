@@ -37,6 +37,7 @@ def load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use
             torch_dtype=torch.float16,
             device_map='auto',
             quantization_config=bnb_config,
+            trust_remote_code=True,
         )
 
         model_name = base_model_name
@@ -49,6 +50,16 @@ def load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use
 
 def run_inference(model, tokeniser, dataset, datasize, n_shot, n_shot_data):
     results = []
+
+    # NOTE: This is temp for llama 2 models
+    tokeniser.chat_template = (
+    "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% else %}{% set loop_messages = messages %}{% endif %}"
+    "{% for message in loop_messages %}"
+    "{% if message['role'] == 'user' %}{{ '[INST] ' + message['content'] + ' [/INST]' }}"
+    "{% elif message['role'] == 'assistant' %}{{ message['content'] + ' ' }}"
+    "{% endif %}"
+    "{% endfor %}"
+    )
 
     for i in tqdm(range(datasize), desc='Evaluating'):
         current_example = dataset[i]
@@ -110,9 +121,9 @@ if __name__ == '__main__':
     torch.manual_seed(random_seed)
 
     # Model details
-    base_model_name = 'meta-llama/Llama-2-7b-hf'
+    base_model_name = 'meta-llama/Llama-2-7b-chat-hf'
     ft_weights_dir = '../opencoder-ft-weights'
-    ft_model_name = 'meta-llama/Llama-2-7b-hf'
+    ft_model_name = 'meta-llama_Llama-2-7b-chat-hf'
 
     # Login to HF
     access_key = os.environ['API_TOKEN']
