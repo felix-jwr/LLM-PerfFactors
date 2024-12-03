@@ -58,10 +58,10 @@ def run_inference(model, tokeniser, dataset, datasize, n_shot, n_shot_data):
             'text-generation',
             model=model,
             tokenizer=tokeniser,
-            max_new_tokens=1500,  # Changed for Llama 3.1-8B-Instruct
+            max_new_tokens=2048,
             pad_token_id=tokeniser.eos_token_id,
         )
-    
+
         messages = generate_n_shot_prompt(n_shot_data=n_shot_data, n=n_shot, question=current_example['question'])
         response = (generator(messages)[0])['generated_text'][-1]['content']
 
@@ -110,9 +110,9 @@ if __name__ == '__main__':
     torch.manual_seed(random_seed)
 
     # Model details
-    base_model_name = 'meta-llama/Llama-3.1-8B-Instruct'
-    ft_weights_dir = '../3.1-8B-opencoder-ft-weights'
-    ft_model_name = 'meta-llama/Llama-3.1-8B-Instruct'
+    base_model_name = 'meta-llama/Llama-2-7b-hf'
+    ft_weights_dir = '../opencoder-ft-weights'
+    ft_model_name = 'meta-llama/Llama-2-7b-hf'
 
     # Login to HF
     access_key = os.environ['API_TOKEN']
