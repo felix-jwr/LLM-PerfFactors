@@ -1,13 +1,7 @@
-"""
-A small collection of utility/helper functions.
-Mostly useful for VRAM management, logging, and file I/O.
-"""
-
 import gc
 import re
 import os
 import json
-import time
 import torch
 import random
 import pynvml
@@ -15,23 +9,18 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
-####################################################################################################
-# Memory Management
-####################################################################################################
 
-def check_vram_usage(plot=False):
+def check_vram_usage(plot: bool = False) -> list:
     """
     Check the current VRAM usage using pynvml.
 
-    Args:
-        plot: Whether to plot the VRAM usage.
-        return: List of VRAM usage for each GPU.
+    args:
+        plot: bool, Whether to plot the VRAM usage.
 
-    Returns:
-        List: VRAM usage for each GPU.
+    returns:
+        vram_usage: list, VRAM usage for each GPU.
     """
 
-    # Initialize NVIDIA Management Library
     pynvml.nvmlInit()               
 
     # Get the VRAM usage for each GPU
@@ -49,21 +38,21 @@ def check_vram_usage(plot=False):
         plt.bar(range(0, pynvml.nvmlUnitGetDeviceCount), vram_usage, color='blue', label='Used')
         plt.show()
 
-    print(f"VRAM Usage: {[str(i) + 'GB' for i in vram_usage]}")
+    print(f'VRAM Usage: {[str(i) + "GB" for i in vram_usage]}')
     pynvml.nvmlShutdown()
 
     return vram_usage
 
 
-def empty_vram(model=None, trainer=None):
+def empty_vram(model = None, trainer = None) -> None:
     """
     Empty the VRAM by deleting all variables and running garbage collection.
 
-    Args:
-        model: Model to delete.
-        trainer: Trainer to delete.
+    args:
+        model: (any), Model to delete.
+        trainer: (any), Trainer to delete.
 
-    Returns:
+    returns:
         None
     """
 
@@ -77,67 +66,69 @@ def empty_vram(model=None, trainer=None):
     gc.collect()
     gc.collect()
 
-####################################################################################################
-# Extract results
-####################################################################################################
 
-def extract_answer(text, eos=None):
+def extract_answer(text: str, eos: str) -> str:
     """
     Extract the model prediction generated from a GSM8k example using regular expressions.
 
-    Args:
-        text: Example to process.
+    args:
+        text: str, Example to process.
+        eos: str, End of string delimiter.
 
-    Returns:
-        string: The extracted numerical output from the text.
+    returns:
+        text: str, The extracted numerical output from the text.
     """
+
     if eos:
         text = re.split(re.escape(eos), text)[0].strip()
 
-    text = re.split(r"####", text)[-1].strip()
-    text = re.sub(r"[,\$%g]", "", text)
+    text = re.split(r'####', text)[-1].strip()
+    text = re.sub(r'[,\$%g]', '', text)
 
     return text
 
-def save_results(results, model_name, dataset_name, n_shot):
+
+def save_results(model_name: str, dataset_name: str, n_shot: int, results: list) -> None:
     """
-    Simple helper function to save a results json from a test run.
+    Save a results .json from a model evaluation.
 
-    Args:
-        results: The dictionary of the results.
-        model_name: A string model name.
-        dataset_name: A string dataset name.
-        n_shot: The number of shots used in the testing scenario.
+    args:
+        model_name: str, The model name. Should ideally be the short name (i.e. excluding 'unsloth/').
+        dataset_name: str, The name of the dataset, 
+        n_shot: int, The number of example questions used for the n-shot test.
+        results: list, The results of model evaluation.
 
-    Returns:
+    returns:
         None
     """
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    model_name = model_name.replace("/", "_")
 
-    os.makedirs(f"../results/{model_name}", exist_ok=True)
-    result_file = f"../results/{model_name}/{dataset_name}_{n_shot}-shot_{timestamp}_RESULTS.json"
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+
+    # Clear up any slashes in the model name to avoid making directories
+    model_name = model_name.replace('/', '_')
+    dataset_name = dataset_name.replace('/', '_')
+
+    os.makedirs(f'.../results/{model_name}', exist_ok=True)
+    result_file = f'.../results/{model_name}/{dataset_name}_{n_shot}-shot_{timestamp}.json'
 
     with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)
 
-    print(f"Results saved to {result_file}")
+    print(f'Results saved to {result_file}')
 
-####################################################################################################
-# Dataset Specific
-####################################################################################################
 
-def generate_n_shot_prompt(n_shot_data, n, question):
+def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int) -> str:
     """
     Generate a prompt for the model with n example questions for an n-shot prompt.
 
-    Args:
-        n_shot_data: Training examples to use as n shots. Mustn't be from the test set.
-        n: The number of example questions to include. Must be > 0.
-        question: The actual prompt from the test set.
+    args:
+        n_shot_data: dict, Training examples to use as n shots. Mustn't be from the test set.
+        n: int, The number of example questions to include. Must be > 0.
+        question: str, The actual prompt from the test set.
+        seed: int, The random seed to use for reproducibility.
 
-    Returns:
-        string: The n-shot prompt for the model.
+    returns:
+        string: str, The n-shot prompt for the model.
     """
 
     def question_prompt(string):
@@ -148,11 +139,12 @@ def generate_n_shot_prompt(n_shot_data, n, question):
 
     prompts = []
 
-    random.seed(42)
+    random.seed(seed)
     for question_and_answer in random.sample(n_shot_data, n):
         prompts.append({"role": "user", "content": question_prompt(question_and_answer["question"])})
         prompts.append({"role": "assistant", "content": answer_prompt(question_and_answer["answer"])})
 
+    # TODO: Refactor this to use flag
     # CoT Prompt
     prompts.append({"role": "user", "content": question_prompt(question) + " Let's think step by step. At the end, you MUST write the answer as an integer after '####'."})
     # No CoT

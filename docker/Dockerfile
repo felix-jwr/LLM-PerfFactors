@@ -28,9 +28,6 @@ RUN chmod +x /app/docker/run.sh
 # ENV MPLCONFIGDIR=/app/.config/matplotlib
 # ENV TRITON_CACHE_DIR=/app/.cache/triton
 
-# Add the API token
-ENV API_TOKEN=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
-
 # USER <username>[:<group>] sets the user to run the container as
 # USER $(id -u):$(id -g)
 
