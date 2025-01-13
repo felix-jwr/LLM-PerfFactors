@@ -27,5 +27,5 @@ have written code to do so), and clean up. This way you can just let it run and 
 
 ### Docker Commands to Use
 (Omit `-d` if still testing)
-- Single GPU: `hare run --rm --gpus device=6 --user $(id -u):$(id -g) -v $(pwd)/out:/app/out fr411/masters-thesis -d`
-- Multiple GPUs: `hare run --rm --gpus '"device=6,7"' --user $(id -u):$(id -g) -v $(pwd)/out:/app/out fr411/masters-thesis -d`
+- Single GPU: `hare run --rm --gpus device=6 --user $(id -u):$(id -g) -d -v $(pwd):/app fr411/masters-thesis`
+- Multiple GPUs: `hare run --rm --gpus '"device=6,7"' --user $(id -u):$(id -g) -d -v $(pwd):/app fr411/masters-thesis`

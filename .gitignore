@@ -161,5 +161,17 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# DO NOT COMMIT ACCESS TOKEN 
+# HF Stuff
+.config
+
+# Repo Specific Ignores
 src/access_token.txt
+ft-model-merged/
+llama-2-7b-ft-weights/
+opencoder-ft-weights/
+3.1-8B-gsm8k-ft-weights/
+3.1-8B-opencoder-ft-weights/
+results/unsloth_Meta-Llama-3.1-8B
+
+# Docker
+docker/Dockerfile

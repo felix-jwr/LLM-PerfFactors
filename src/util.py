@@ -4,18 +4,31 @@ Mostly useful for VRAM management, logging, and file I/O.
 """
 
 import gc
+import re
 import os
+import json
+import time
 import torch
+import random
 import pynvml
+import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 
+####################################################################################################
+# Memory Management
+####################################################################################################
 
 def check_vram_usage(plot=False):
     """
     Check the current VRAM usage using pynvml.
 
-    return: List of VRAM usage for each GPU.
+    Args:
+        plot: Whether to plot the VRAM usage.
+        return: List of VRAM usage for each GPU.
+
+    Returns:
+        List: VRAM usage for each GPU.
     """
 
     # Initialize NVIDIA Management Library
@@ -46,14 +59,103 @@ def empty_vram(model=None, trainer=None):
     """
     Empty the VRAM by deleting all variables and running garbage collection.
 
-    model: Model to delete.
-    trainer: Trainer to delete.
-    return: None.
+    Args:
+        model: Model to delete.
+        trainer: Trainer to delete.
+
+    Returns:
+        None
     """
 
-    del model
-    del trainer
-    import gc
+    try:
+        del model
+        del trainer
+    except:
+        pass
+
     torch.cuda.empty_cache()
     gc.collect()
     gc.collect()
+
+####################################################################################################
+# Extract results
+####################################################################################################
+
+def extract_answer(text, eos=None):
+    """
+    Extract the model prediction generated from a GSM8k example using regular expressions.
+
+    Args:
+        text: Example to process.
+
+    Returns:
+        string: The extracted numerical output from the text.
+    """
+    if eos:
+        text = re.split(re.escape(eos), text)[0].strip()
+
+    text = re.split(r"####", text)[-1].strip()
+    text = re.sub(r"[,\$%g]", "", text)
+
+    return text
+
+def save_results(results, model_name, dataset_name, n_shot):
+    """
+    Simple helper function to save a results json from a test run.
+
+    Args:
+        results: The dictionary of the results.
+        model_name: A string model name.
+        dataset_name: A string dataset name.
+        n_shot: The number of shots used in the testing scenario.
+
+    Returns:
+        None
+    """
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    model_name = model_name.replace("/", "_")
+
+    os.makedirs(f"../results/{model_name}", exist_ok=True)
+    result_file = f"../results/{model_name}/{dataset_name}_{n_shot}-shot_{timestamp}_RESULTS.json"
+
+    with open(result_file, 'w') as f:
+        json.dump(results, f, indent=4)
+
+    print(f"Results saved to {result_file}")
+
+####################################################################################################
+# Dataset Specific
+####################################################################################################
+
+def generate_n_shot_prompt(n_shot_data, n, question):
+    """
+    Generate a prompt for the model with n example questions for an n-shot prompt.
+
+    Args:
+        n_shot_data: Training examples to use as n shots. Mustn't be from the test set.
+        n: The number of example questions to include. Must be > 0.
+        question: The actual prompt from the test set.
+
+    Returns:
+        string: The n-shot prompt for the model.
+    """
+
+    def question_prompt(string):
+        return f"Q: {string}"
+
+    def answer_prompt(string):
+        return f"A: {string}"
+
+    prompts = []
+
+    random.seed(42)
+    for question_and_answer in random.sample(n_shot_data, n):
+        prompts.append({"role": "user", "content": question_prompt(question_and_answer["question"])})
+        prompts.append({"role": "assistant", "content": answer_prompt(question_and_answer["answer"])})
+
+    # CoT Prompt
+    prompts.append({"role": "user", "content": question_prompt(question) + " Let's think step by step. At the end, you MUST write the answer as an integer after '####'."})
+    # No CoT
+    # prompts.append({"role": "user", "content": question_prompt(question) + " You MUST write the answer as an integer after '####'."})
+
+    return prompts

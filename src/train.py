@@ -1,190 +1,156 @@
+import os
 import torch
 from trl import SFTTrainer
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    HfArgumentParser,
-    TrainingArguments,
-    pipeline,
-    logging,
-)
 from datasets import load_dataset
 from huggingface_hub import login
-from peft import LoraConfig, PeftModel
+from unsloth import FastLanguageModel
+from transformers import TrainingArguments
 from util import empty_vram, check_vram_usage
 
+
+# Set the random seed for reproducibility
+random_seed=42
+torch.manual_seed(random_seed)
+
+################################################################################
+#  Model and Tokeniser
+################################################################################
+
+# Set the name of the model to train, and the name of the new (fine-tuned) model
+model_name = "unsloth/Meta-Llama-3.1-8B"
+new_model = "../3.1-8B-gsm8k-ft-weights"
+dtype = None    # Use None for auto-detection
+max_seq_length = 2048  # Choose any! We auto support RoPE Scaling internally!
+load_in_4bit = True # Use 4bit quantization to reduce memory usage. Can be False.
+
+model, tokeniser = FastLanguageModel.from_pretrained(
+    model_name = "unsloth/Meta-Llama-3.1-8B",
+    max_seq_length = max_seq_length,
+    dtype = dtype,   
+    load_in_4bit = load_in_4bit,
+    token = os.environ['API_TOKEN'], # use one if using gated models like meta-llama/Llama-2-7b-hf
+)
+
+model = FastLanguageModel.get_peft_model(
+    model,
+    r = 64, # Choose any number > 0 ! Suggested 8, 16, 32, 64, 128
+    target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
+                      "gate_proj", "up_proj", "down_proj",],
+    lora_alpha = 16,
+    lora_dropout = 0, # Supports any, but = 0 is optimized
+    bias = "none",    # Supports any, but = "none" is optimized
+    use_gradient_checkpointing = "unsloth", # True or "unsloth" for very long context (uses 30% less VRAM, fits 2x larger batch sizes!)
+    random_state = random_seed,
+    use_rslora = False,  # We support rank stabilized LoRA
+    loftq_config = None, # And LoftQ
+)
+
+################################################################################
+# Data Prep
+################################################################################
+
+prompt = """Below is an instruction that describes a task. Write a response that appropriately completes the request.
+
+### Instruction:
+{}
+
+### Response:
+{}"""
+
+EOS_TOKEN = tokeniser.eos_token # Must add EOS_TOKEN
+def formatting_prompts_func(examples):
+    instructions = examples["question"]  # NOTE: This will need changing depending on the dataset.
+    outputs      = examples["answer"]
+    texts = []
+    for instruction, output in zip(instructions, outputs):
+        # Must add EOS_TOKEN, otherwise your generation will go on forever!
+        text = prompt.format(instruction, output) + EOS_TOKEN
+        texts.append(text)
+    return { "text" : texts, }
+pass
+
 # Login to HF
-access_key = open('access_token.txt','r').read()
+access_key = os.environ['API_TOKEN']
 login(token = access_key)
 
-# Set the name of the model to train, the dataset to use, and the name of the new (fine-tuned) model
-model_name = "meta-llama/Llama-2-7b-chat-hf"
-dataset_name = "mlabonne/guanaco-llama2-1k"
-new_model = "llama-2-7b-miniguanaco"
+# Load dataset
+dataset_name = "openai/gsm8k"
+dataset = load_dataset(dataset_name, "main", split="train")
+dataset = dataset.map(formatting_prompts_func, batched = True,) # Format the prompts using the above function
+
+# Legacy code for loading a subset of the dataset
+# # Shuffle and take a subset (e.g., 10% of the original dataset)
+# # Cuts down dataset from 676k rows to 67.6k, saves time for trainig proof of concept
+# all_data = dataset["train"]
+# subset_size = int(0.5 * len(all_data))  # Adjust the fraction as needed
+# small_all_data = all_data.shuffle(seed=random_seed).select(range(subset_size))
+
+# # Extra for code dataset - make a train test split
+# split_dataset = small_all_data.train_test_split(test_size=0.2, seed=random_seed)
+# train_dataset = split_dataset["train"]
+# test_dataset = split_dataset["test"]
+# print("\nLoaded dataset.")
 
 ################################################################################
-# QLoRA parameters
+# Training
 ################################################################################
-
-lora_r = 64                         # LoRA attention dimension
-lora_alpha = 16                     # Alpha parameter for LoRA scaling
-lora_dropout = 0.1                  # Dropout probability for LoRA layers
-
-################################################################################
-# bitsandbytes parameters
-################################################################################
-
-use_4bit = True                     # Activate 4-bit precision base model loading
-bnb_4bit_compute_dtype = "float16"  # Compute dtype for 4-bit base models
-bnb_4bit_quant_type = "nf4"         # Quantization type (fp4 or nf4)
-use_nested_quant = False            # Activate nested quantization for 4-bit base models (double quantization)
-
-################################################################################
-# TrainingArguments parameters
-################################################################################
-
-
-output_dir = "./results"            # Output directory where the model predictions and checkpoints will be stored
-num_train_epochs = 1                # Number of training epochs
-fp16 = False                        # Enable fp16/bf16 training (set bf16 to True with an A100)
-bf16 = False
-per_device_train_batch_size = 4     # Batch size per GPU for training
-per_device_eval_batch_size = 4      # Batch size per GPU for evaluation
-gradient_accumulation_steps = 1     # Number of update steps to accumulate the gradients for
-gradient_checkpointing = True       # Enable gradient checkpointing
-max_grad_norm = 0.3                 # Maximum gradient normal (gradient clipping)
-learning_rate = 2e-4                # Initial learning rate (AdamW optimizer)
-weight_decay = 0.001                # Weight decay to apply to all layers except bias/LayerNorm weights
-optim = "paged_adamw_32bit"         # Optimizer to use (AdamW, PagedAdamW, etc.)
-lr_scheduler_type = "cosine"        # Learning rate schedule
-max_steps = -1                      # Number of training steps (overrides num_train_epochs)
-warmup_ratio = 0.03                 # Ratio of steps for a linear warmup (from 0 to learning rate)
-group_by_length = True              # Group sequences into batches with same length. Saves memory and speeds up training
-save_steps = 0                      # Save checkpoint every X updates steps (0 to disable)
-logging_steps = 25                  # Log every X updates steps (0 to disable)
-
-################################################################################
-# SFT parameters
-################################################################################
-
-max_seq_length = None               # Maximum sequence length to use
-packing = False                     # Pack multiple short examples in the same input sequence to increase efficiency
-device_map = "auto"                 # Where to load the model (auto, cuda:0, etc.)
-
-################################################################################
-# Load Dataset
-################################################################################
-
-# Load dataset (you can process it here)
-dataset = load_dataset(dataset_name, split="train")
-
-# Load tokenizer and model with QLoRA configuration
-compute_dtype = getattr(torch, bnb_4bit_compute_dtype)
-bnb_config = BitsAndBytesConfig(
-    load_in_4bit=use_4bit,
-    bnb_4bit_quant_type=bnb_4bit_quant_type,
-    bnb_4bit_compute_dtype=compute_dtype,
-    bnb_4bit_use_double_quant=use_nested_quant,
-)
-
-# Check GPU compatibility with bfloat16
-if compute_dtype == torch.float16 and use_4bit:
-    major, _ = torch.cuda.get_device_capability()
-    if major >= 8:
-        print("=" * 80)
-        print("Your GPU supports bfloat16: accelerate training with bf16=True")
-        print("=" * 80)
-
-# Load base model
-model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    quantization_config=bnb_config,
-    device_map=device_map
-)
-model.config.use_cache = False
-model.config.pretraining_tp = 1
-
-# Load LLaMA tokenizer
-tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-tokenizer.pad_token = tokenizer.eos_token
-tokenizer.padding_side = "right" # Fix weird overflow issue with fp16 training
-
-# Load LoRA configuration
-peft_config = LoraConfig(
-    lora_alpha=lora_alpha,
-    lora_dropout=lora_dropout,
-    r=lora_r,
-    bias="none",
-    task_type="CAUSAL_LM",
-)
 
 # Set training parameters
 training_arguments = TrainingArguments(
-    output_dir=output_dir,
-    num_train_epochs=num_train_epochs,
-    per_device_train_batch_size=per_device_train_batch_size,
-    gradient_accumulation_steps=gradient_accumulation_steps,
-    optim=optim,
-    save_steps=save_steps,
-    logging_steps=logging_steps,
-    learning_rate=learning_rate,
-    weight_decay=weight_decay,
-    fp16=fp16,
-    bf16=bf16,
-    max_grad_norm=max_grad_norm,
-    max_steps=max_steps,
-    warmup_ratio=warmup_ratio,
-    group_by_length=group_by_length,
-    lr_scheduler_type=lr_scheduler_type,
-    report_to="tensorboard"
-)
+        per_device_train_batch_size = 16,
+        gradient_accumulation_steps = 16,
+        warmup_steps = 5,
+        num_train_epochs = 1, # Set this for 1 full training run.
+        # max_steps = 8500, # Number of training steps (overrides num_train_epochs)
+        learning_rate = 2e-4,
+        fp16 = False,
+        bf16 = True,
+        logging_steps = 25,
+        optim = "adamw_8bit",
+        weight_decay = 0.01,
+        lr_scheduler_type = "linear",
+        seed = random_seed,
+        output_dir = f"../results/{model_name.replace('/', '_')}",
+        report_to = "tensorboard", # Use this for WandB etc
+    )
 
 # Set supervised fine-tuning (SFT) parameters
 trainer = SFTTrainer(
-    model=model,
-    train_dataset=dataset,
-    peft_config=peft_config,
-    dataset_text_field="text",
-    max_seq_length=max_seq_length,
-    tokenizer=tokenizer,
-    args=training_arguments,
-    packing=packing,
+    model = model,
+    tokenizer = tokeniser,
+    train_dataset = dataset,
+    dataset_text_field = "text", # TODO: Data processing
+    max_seq_length = max_seq_length,
+    dataset_num_proc = 2,
+    packing = False, # Can make training 5x faster for short sequences.
+    args = training_arguments,
 )
 
 # Check VRAM usage after loading everything
-check_vram_usage(plot=False)
+gpu_stats = torch.cuda.get_device_properties(0)
+start_gpu_memory = round(torch.cuda.max_memory_reserved() / 1024 / 1024 / 1024, 3)
+max_memory = round(gpu_stats.total_memory / 1024 / 1024 / 1024, 3)
+print(f"GPU = {gpu_stats.name}. Max memory = {max_memory} GB.")
+print(f"{start_gpu_memory} GB of memory reserved.")
 
 # Train model and save
-trainer.train()
+print("\nStarting fine tuning...")
+trainer_stats = trainer.train()
+print("\nFine tuning complete!")
 trainer.model.save_pretrained(new_model)
+tokeniser.save_pretrained(new_model)
+
+# Show final memory and time stats
+used_memory = round(torch.cuda.max_memory_reserved() / 1024 / 1024 / 1024, 3)
+used_memory_for_lora = round(used_memory - start_gpu_memory, 3)
+used_percentage = round(used_memory         /max_memory*100, 3)
+lora_percentage = round(used_memory_for_lora/max_memory*100, 3)
+print(f"{trainer_stats.metrics['train_runtime']} seconds used for training.")
+print(f"{round(trainer_stats.metrics['train_runtime']/60, 2)} minutes used for training.")
+print(f"Peak reserved memory = {used_memory} GB.")
+print(f"Peak reserved memory for training = {used_memory_for_lora} GB.")
+print(f"Peak reserved memory % of max memory = {used_percentage} %.")
+print(f"Peak reserved memory for training % of max memory = {lora_percentage} %.")
 
 # Empty VRAM
 empty_vram(model=model, trainer=trainer)
-
-################################################################################
-# Merge LoRA weights with base model
-################################################################################
-
-# Reload model in FP16 and merge it with LoRA weights
-base_model = AutoModelForCausalLM.from_pretrained(
-    model_name,
-    low_cpu_mem_usage=True,
-    return_dict=True,
-    torch_dtype=torch.float16,
-    device_map=device_map,
-)
-model = PeftModel.from_pretrained(base_model, new_model)
-model = model.merge_and_unload()
-
-# Reload tokenizer to save it
-tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-tokenizer.pad_token = tokenizer.eos_token
-tokenizer.padding_side = "right"
-
-merged_model_dir = "llama-2-7b-hf-ft"
-model.save_pretrained(merged_model_dir)
-tokenizer.save_pretrained(merged_model_dir)
-
-# Empty VRAM
-empty_vram(model=model, trainer=None)
