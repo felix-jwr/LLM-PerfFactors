@@ -1,4 +1,7 @@
+import time
+import copy
 import torch
+from tqdm import tqdm
 from datasets import load_dataset
 from huggingface_hub import login
 from unsloth import FastLanguageModel
@@ -26,12 +29,12 @@ def init_unsloth(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit
         tokeniser: FastTokeniser, The loaded HF tokeniser
     """
 
-    model, tokeniser = FastLanguageModel.for_inference(
+    model, tokeniser = FastLanguageModel.from_pretrained(
         model_name = model_name,
         max_seq_length = max_seq_length,
         dtype = dtype,
-        load_in_4_bit = load_in_4_bit,
-        token = HF_TOKEN    # TODO: Set this up with Docker secrets
+        load_in_4bit = load_in_4_bit,
+        token = HF_TOKEN
     )
 
     # Add LoRA Adapter
@@ -43,13 +46,13 @@ def init_unsloth(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit
         use_gradient_checkpointing = 'unsloth',
         random_state = RANDOM_STATE,
         use_rslora = False,
-        loftq_confid = None
+        loftq_config = None
     )
 
     return model, tokeniser
 
 
-def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_name: str, use_cot: bool) -> tuple:
+def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_name: str, use_cot: bool, tokeniser) -> tuple:
     """
     Load a dataset from HF, and apply preprocessing (i.e. formatting prompts using the chat template appropriate for 
     the model used).
@@ -59,62 +62,65 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
         split_name: str, The name of the split to load (e.g. 'train', 'test').
+        use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
+        tokeniser: (any), The tokeniser to use for formatting the prompts.
 
     returns:
         dataset: dict, The loaded dataset, as is, without any additional processing.
-        inputs: dict, The loaded dataset with prompts formatted in generic HF multi-turn conversation style. # TODO: Probably not a dict
+        inputs: dict, The loaded dataset with prompts formatted in generic HF multi-turn conversation style.
     """
 
     # Load the dataset from HF
-    login(token = HF_TOKEN)
+    login(token=HF_TOKEN)
     dataset = load_dataset(dataset_name, subset_name, split=split_name)
 
-    # Get the chat template for the model
+    # Configure the tokenizer with the template
     tokeniser = get_chat_template(
         tokeniser,
-        chat_template = model_name
+        chat_template=model_name.split('/')[-1],
     )
+    
+    def format_prompt(example):
+        # For each entry in the dataset, apply CoT if required
+        question = example['question']
+        if use_cot: question = f'{question} Let\'s think step by step.'
+        message = [{'role': 'user', 'content': f'{question}'}]
 
-    def format_prompts(examples: dict) -> dict:
-        # This setup uses GSM8K dataset, because of the ['question'] key
-        convos = []
-
-        for i in range(len(examples)):
-            if use_cot:
-                convos.append( {'role': 'user', 'content': f'{examples[i]['question']} Let\'s think step by step.'} )
-            else:
-                convos.append( {'role': 'user', 'content': examples[i]['question']} )
-        
-        inputs = tokeniser.apply_chat_template(
-            convos,
-            tokenize = True,
-            add_generation_prompt = True, # Needed for generation
-            return_tensors = 'pt'
+        # Apply the chat template
+        formatted_prompt = tokeniser.apply_chat_template(
+            message,
+            tokenize=True,
+            add_generation_prompt=True,
+            return_tensors='pt'
         ).to('cuda')
 
-        return inputs
-    return format_prompts(dataset)
+        return formatted_prompt
+    
+    # Apply the formatting
+    inputs = []
+    for i in tqdm(range(len(dataset)), desc='Formatting prompts'):
+        inputs.append( format_prompt(dataset[i]) )
+    
+    return dataset, inputs
 
 
-def run_inference(model: FastLanguageModel, tokeniser: FastTokenizer, inputs: dict) -> list:
+def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> tuple:
     """
     Run inference on the model, generating responses to the given inputs.
 
     args:
         model: FastLanguageModel, The (loaded) model.
-        tokeniser: FastTokenizer, The (loaded) tokeniser.
-        inputs: dict, The inputs to the model. # TODO: Probably not a dict
-        ground_truths: dict, The ground truths for the inputs.
+        tokeniser: (any), The (loaded) tokeniser.
+        input: tensor, The inputs to the model.
 
     returns:
-        decoded_outputs: list, The decoded outputs from the model.
+        decoded_input: list, The decoded input from the model.
+        decoded_output: list, The decoded output from the model.
     """
-    results = {}
 
-    # Generate results
-    outputs = model.generate(
-        input_ids = inputs,
-        tokeniser = tokeniser,
+    output = model.generate(
+        input_ids = input,
+        tokenizer = tokeniser,
         max_new_tokens = 2048,
         pad_token_id = tokeniser.eos_token_id,
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
@@ -123,45 +129,59 @@ def run_inference(model: FastLanguageModel, tokeniser: FastTokenizer, inputs: di
         temperature = 1.5, 
         min_p = 0.1
     )
-    decoded_outputs = tokeniser.batch_decode(outputs)
 
-    return decoded_outputs
+    decoded_input = tokeniser.batch_decode(input, skip_special_tokens=True)
+    decoded_output = tokeniser.batch_decode(output, skip_special_tokens=True)
+
+    return decoded_input, decoded_output
 
 
-def evaluate_model(inputs: dict, decoded_outputs: list, ground_truths: list) -> list:
+def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict) -> list:
     """
     Evaluate the model's accuracy given a set of decoded outputs and ground truths.
 
     args:
-        inputs: dict, The prompts given to the model. # TODO: Probably not a dict
-        decoded_outputs: list, The decoded outputs from the model.
-        ground_truths: list, The ground truths for the inputs.
+        model: FastLanguageModel, The (loaded) model.
+        tokeniser: (any), The (loaded) tokeniser.
+        inputs: list, The inputs to the model.
+        ground_truths: dict, The ground truths for the inputs.
 
     returns:
         results: list, Prompt-response pairs, with the ground truth and correctness. Final element is overall accuracy.
     """
 
-    # Construct list of dictionaries, containing prompt-response, ground truth, and correctness
     results = []
+    total_correct = 0
+    total_examples = len(inputs)
+    FastLanguageModel.for_inference(model)
 
-    for i in range(len(decoded_outputs)):
+    for i in tqdm(range(total_examples), desc='Evaluating model'):
+        correct = False
+
+        # Get the model's response
+        decoded_input, decoded_output = run_inference(model, tokeniser, inputs[i])
+        ground_truth = ground_truths[i]['answer']
+
+        # Extract numerical output
+        extracted_output = extract_answer(decoded_output[0])
+        extracted_ground_truth = extract_answer(ground_truth, truth=True)
+
+        if extracted_output == extracted_ground_truth:
+            correct = True
+            total_correct += 1
+
+        # Save prompt, reponse, ground truth, and correctness to be saved in .json file
         results.append({
-            'model_response': decoded_outputs[i],
-            'model_prediction': extract_answer(decoded_outputs[i]),
-            'ground_truth_text': ground_truths[i],
-            'ground_truth_answer': extract_answer(ground_truths[i]),
-            'correct': (extract_answer(decoded_outputs[i]) == extract_answer(ground_truths[i]))
+            'model_prompt': decoded_input, 
+            'model_response': decoded_output,
+            'model_prediction': extracted_output,
+            'ground_truth_text': ground_truth,
+            'ground_truth_answer': extracted_ground_truth,
+            'correct': correct
         })
 
-    # Get overall accuracy
-    correct, total = 0
-    for result in results:
-        if result['correct']:
-            correct += 1
-        total += 1
-
-    results.append({'accuracy': correct / total})
-    print(f'Accuracy: {correct} / {total} = {correct / total :.4f}')
+    results.append({'accuracy': total_correct / total_examples})
+    print(f'Accuracy: {total_correct} / {total_examples} = {total_correct / total_examples :.4f}')
 
     return results
 
@@ -172,11 +192,12 @@ if __name__ == '__main__':
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/Llama-3.2-1B-bnb-4bit'    # Model to load
+    MODEL_NAME = 'unsloth/Llama-3.2-3B-Instruct-bnb-4bit'
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
-    MAX_SEQ_LENGTH = 2048                           # Max. input length  
-    DTYPE = None                                    # 'None' for auto-detection
-    LOAD_IN_4_BIT = True                            # Reduces memory usage
+    CHAT_TEMPLATE_NAME = 'llama-3.1'                    # Chat template to use
+    MAX_SEQ_LENGTH = 2048                               # Max. input length  
+    DTYPE = None                                        # 'None' for auto-detection
+    LOAD_IN_4_BIT = True                                # Reduces memory usage
 
     # Loading the dataset
     DATASET_NAME = 'openai/gsm8k'
@@ -199,28 +220,23 @@ if __name__ == '__main__':
 
     # 2. Load and format the dataset
     raw_dataset, model_prompts = format_dataset(
-        model_name = MODEL_NAME, 
+        model_name = CHAT_TEMPLATE_NAME, 
         dataset_name = DATASET_NAME, 
         subset_name = SUBSET_NAME, 
         split_name = SPLIT_NAME, 
-        use_cot = USE_COT
+        use_cot = USE_COT,
+        tokeniser = loaded_tokeniser
     )
 
-    # 3. Run inference on the model
-    model_outputs = run_inference(
-        model = loaded_model, 
-        tokeniser = loaded_tokeniser, 
-        inputs = model_prompts
-    )
-
-    # 4. Evaluate the model
+    # 3. Evaluate the model
     model_results = evaluate_model(
+        model = loaded_model,
+        tokeniser = loaded_tokeniser,
         inputs = model_prompts, 
-        decoded_outputs = model_outputs, 
         ground_truths = raw_dataset
     )
 
-    # 5. Save the results
+    # 4. Save the results
     save_results(
         model_name = MODEL_NAME_SHORT, 
         dataset_name = DATASET_NAME, 

@@ -67,25 +67,37 @@ def empty_vram(model = None, trainer = None) -> None:
     gc.collect()
 
 
-def extract_answer(text: str, eos: str) -> str:
+def extract_answer(text: str, eos: str = None, truth: bool = False) -> str:
     """
-    Extract the model prediction generated from a GSM8k example using regular expressions.
+    Extract the last numerical answer from a piece of text using regular expressions.
 
     args:
         text: str, Example to process.
         eos: str, End of string delimiter.
+        truth: bool, Whether the text is a ground truth answer.
 
     returns:
-        text: str, The extracted numerical output from the text.
+        output: str, The extracted numerical output from the text.
     """
 
+    if truth:
+        answer = re.split(r'####', text)[-1].strip()
+        output = re.sub(r'[,\$£€¥%g]', '', answer)
+        return output
+
+    # If eos is provided, split on it first
     if eos:
         text = re.split(re.escape(eos), text)[0].strip()
-
-    text = re.split(r'####', text)[-1].strip()
-    text = re.sub(r'[,\$%g]', '', text)
-
-    return text
+    
+    # Look for numbers with optional decimal points, commas, and currency symbols
+    all_numbers = re.findall(r'[,\$£€¥%g]?(\d+(?:,\d+)*(?:\.\d+)?)', text)
+    
+    if all_numbers:
+        answer = all_numbers[-1].strip()
+        output = re.sub(r'[,\$£€¥%g]', '', answer)#
+        return output
+    
+    return ''
 
 
 def save_results(model_name: str, dataset_name: str, n_shot: int, results: list) -> None:
@@ -108,8 +120,8 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, results: list)
     model_name = model_name.replace('/', '_')
     dataset_name = dataset_name.replace('/', '_')
 
-    os.makedirs(f'.../results/{model_name}', exist_ok=True)
-    result_file = f'.../results/{model_name}/{dataset_name}_{n_shot}-shot_{timestamp}.json'
+    os.makedirs(f'../results/{model_name}', exist_ok=True)
+    result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_{timestamp}.json'
 
     with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)
