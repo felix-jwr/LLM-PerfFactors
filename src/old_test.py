@@ -10,12 +10,15 @@ from util import (
     empty_vram, 
     save_results,
     extract_answer,
-    generate_n_shot_prompt
+    generate_n_shot_prompt,
+    check_vram_usage
 )
 from tqdm import tqdm
 from datasets import load_dataset
 from huggingface_hub import login
-from merge import merge_weights_with_model
+
+
+HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
 
 def load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use_base=True):
@@ -121,34 +124,35 @@ if __name__ == '__main__':
     torch.manual_seed(random_seed)
 
     # Model details
-    base_model_name = 'meta-llama/Llama-2-7b-chat-hf'
+    base_model_name = 'unsloth/DeepSeek-R1-Distill-Qwen-32B-bnb-4bit'
     ft_weights_dir = '../opencoder-ft-weights'
     ft_model_name = 'meta-llama_Llama-2-7b-chat-hf'
 
     # Login to HF
     access_key = os.environ['API_TOKEN']
-    login(token=access_key)
+    login(token=HF_TOKEN)
     
     # Load everything
     all_data = load_dataset('openai/gsm8k', 'main')
     dataset = all_data['test']
     datasize = len(dataset)
-    model, tokeniser, model_name = load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use_base=False)
+    model, tokeniser, model_name = load_model_and_tokeniser(base_model_name, ft_model_name, ft_weights_dir, use_base=True)
+    check_vram_usage()
 
-    # Set up prompting
-    n_shot_data = all_data['train']
-    n_shot_data = n_shot_data.to_pandas()
-    n_shot_data = n_shot_data.to_dict(orient='records')
+    # # Set up prompting
+    # n_shot_data = all_data['train']
+    # n_shot_data = n_shot_data.to_pandas()
+    # n_shot_data = n_shot_data.to_dict(orient='records')
 
-    # Evaluate model in 8-shot setting
-    print(f'EVALUATING 8-SHOT {model_name.upper()}')
-    few_shot_results = eval(model, tokeniser, dataset, datasize, n_shot=8, n_shot_data=n_shot_data)
-    save_results(few_shot_results, model_name, dataset_name='gsm8k', n_shot=8)
+    # # Evaluate model in 8-shot setting
+    # print(f'EVALUATING 8-SHOT {model_name.upper()}')
+    # few_shot_results = eval(model, tokeniser, dataset, datasize, n_shot=8, n_shot_data=n_shot_data)
+    # save_results(few_shot_results, model_name, dataset_name='gsm8k', n_shot=8)
 
-    # TODO: Fix zero-shot prompting/answer extraction for llama 2 7b
-    # Evaluate model in zero-shot setting
-    print(f'EVALUATING 0-SHOT {model_name.upper()}')
-    zero_shot_results = eval(model, tokeniser, dataset, datasize, n_shot=0, n_shot_data=n_shot_data)
-    save_results(zero_shot_results, model_name, dataset_name='gsm8k', n_shot=0)
+    # # TODO: Fix zero-shot prompting/answer extraction for llama 2 7b
+    # # Evaluate model in zero-shot setting
+    # print(f'EVALUATING 0-SHOT {model_name.upper()}')
+    # zero_shot_results = eval(model, tokeniser, dataset, datasize, n_shot=0, n_shot_data=n_shot_data)
+    # save_results(zero_shot_results, model_name, dataset_name='gsm8k', n_shot=0)
 
     empty_vram()
