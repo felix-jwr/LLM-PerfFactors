@@ -119,7 +119,7 @@ def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> t
     output = model.generate(
         input_ids = input,
         tokenizer = tokeniser,
-        max_new_tokens = 2048,
+        max_new_tokens = MAX_SEQ_LENGTH,
         pad_token_id = tokeniser.eos_token_id,
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
         use_cache = True, 

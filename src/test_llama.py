@@ -2,52 +2,73 @@ import time
 import copy
 import torch
 from tqdm import tqdm
-from datasets import load_dataset
 from huggingface_hub import login
-from unsloth import FastLanguageModel
-from unsloth.chat_templates import get_chat_template
-from util import empty_vram, extract_answer, save_results
+from datasets import load_dataset
+from util import empty_vram, extract_answer, save_results, check_vram_usage
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
 
 
 RANDOM_STATE = 42
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
+unsloth_template = \
+    "{{ bos_token }}"\
+    "{% if messages[0]['role'] == 'system' %}"\
+        "{{ messages[0]['content'] + '\n' }}"\
+        "{% set loop_messages = messages[1:] %}"\
+    "{% else %}"\
+        "{{ '{system_message}' + '\n' }}"\
+        "{% set loop_messages = messages %}"\
+    "{% endif %}"\
+    "{% for message in loop_messages %}"\
+        "{% if message['role'] == 'user' %}"\
+            "{{ '>>> User: ' + message['content'] + '\n' }}"\
+        "{% elif message['role'] == 'assistant' %}"\
+            "{{ '>>> Assistant: ' + message['content'] + eos_token + '\n' }}"\
+        "{% else %}"\
+            "{{ raise_exception('Only user and assistant roles are supported!') }}"\
+        "{% endif %}"\
+    "{% endfor %}"\
+    "{% if add_generation_prompt %}"\
+        "{{ '>>> Assistant: ' }}"\
+    "{% endif %}"
+pass
 
 
-def init_unsloth(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) -> tuple:
+def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) -> tuple:
     """
-    Initialise Model and Tokeniser using Unsloth.
+    Initialise Model and Tokeniser.
 
     args:
         model_name: str, Name of the model to load from HF
         max_seq_length: int, Maximum sequence length
-        r: int, LoRA Rank
-        lora_dropout: float, LoRA Dropout (optimised for 0)
         bias: str, LoRA Bias (optimised for none)
 
     returns:
-        model: FastLanguageModel, The loaded HF model
-        tokeniser: FastTokeniser, The loaded HF tokeniser
+        model: AutoModelForCausalLM, The loaded HF model
+        tokeniser: AutoTokenizer, The loaded HF tokeniser
     """
 
-    model, tokeniser = FastLanguageModel.from_pretrained(
-        model_name = model_name,
-        max_seq_length = max_seq_length,
-        dtype = dtype,
-        load_in_4bit = load_in_4_bit,
-        token = HF_TOKEN
+    # bnb_config = BitsAndBytesConfig(
+    #     load_in_4bit = load_in_4_bit,           # Activate 4-bit precision base model loading
+    #     bnb_4bit_quant_type = 'nf4',            # Quantisation type (fp4 or nf4)
+    #     bnb_4bit_compute_dtype = 'float16',     # Compute dtype for 4-bit base models
+    #     bnb_4bit_use_double_quant = False,      # Activate nested quantisation for 4-bit base models (double quant)
+    # )
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype = dtype,
+        # quantization_config = bnb_config,
+        device_map = 'auto',
+        trust_remote_code = True
     )
 
-    # Add LoRA Adapter
-    model = FastLanguageModel.get_peft_model(
-        model,
-        r = 16,
-        lora_dropout = 0,
-        bias = 'none',
-        use_gradient_checkpointing = 'unsloth',
-        random_state = RANDOM_STATE,
-        use_rslora = False,
-        loftq_config = None
+    tokeniser = AutoTokenizer.from_pretrained(
+        model_name,
+        trust_remote_code = True
     )
+    tokeniser.pad_token = tokeniser.eos_token
+    tokeniser.padding_side = 'right'
 
     return model, tokeniser
 
@@ -71,15 +92,9 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
     """
 
     # Load the dataset from HF
-    login(token=HF_TOKEN)
     dataset = load_dataset(dataset_name, subset_name, split=split_name)
 
     # Configure the tokenizer with the template
-    tokeniser = get_chat_template(
-        tokeniser,
-        chat_template=model_name.split('/')[-1],
-    )
-    
     def format_prompt(example):
         # For each entry in the dataset, apply CoT if required
         question = example['question']
@@ -89,10 +104,9 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
         # Apply the chat template
         formatted_prompt = tokeniser.apply_chat_template(
             message,
-            tokenize=True,
+            tokenize=False,
             add_generation_prompt=True,
-            return_tensors='pt'
-        ).to('cuda')
+        )
 
         return formatted_prompt
     
@@ -104,44 +118,12 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
     return dataset, inputs
 
 
-def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> tuple:
-    """
-    Run inference on the model, generating responses to the given inputs.
-
-    args:
-        model: FastLanguageModel, The (loaded) model.
-        tokeniser: (any), The (loaded) tokeniser.
-        input: tensor, The inputs to the model.
-
-    returns:
-        decoded_input: list, The decoded input from the model.
-        decoded_output: list, The decoded output from the model.
-    """
-
-    output = model.generate(
-        input_ids = input,
-        tokenizer = tokeniser,
-        max_new_tokens = 2048,
-        pad_token_id = tokeniser.eos_token_id,
-        # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
-        use_cache = True, 
-        # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
-        temperature = 1.5, 
-        min_p = 0.1
-    )
-
-    decoded_input = tokeniser.batch_decode(input, skip_special_tokens=True)
-    decoded_output = tokeniser.batch_decode(output, skip_special_tokens=True)
-
-    return decoded_input, decoded_output
-
-
 def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict) -> list:
     """
     Evaluate the model's accuracy given a set of decoded outputs and ground truths.
 
     args:
-        model: FastLanguageModel, The (loaded) model.
+        model: AutoModelForCausalLM, The (loaded) model.
         tokeniser: (any), The (loaded) tokeniser.
         inputs: list, The inputs to the model.
         ground_truths: dict, The ground truths for the inputs.
@@ -150,20 +132,33 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         results: list, Prompt-response pairs, with the ground truth and correctness. Final element is overall accuracy.
     """
 
+    # Configure model generator for inference
+    tokeniser.chat_template = unsloth_template
+    pipe = pipeline(
+        'text-generation',
+        model = model,
+        tokenizer = tokeniser,
+        max_new_tokens = MAX_SEQ_LENGTH,
+        pad_token_id = tokeniser.eos_token_id,
+        # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
+        temperature = 1.5,
+        # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
+        min_p = 0.1
+    )
+
     results = []
     total_correct = 0
     total_examples = len(inputs)
-    FastLanguageModel.for_inference(model)
 
-    for i in tqdm(range(total_examples), desc='Evaluating model'):
+    for i in tqdm(range(len(inputs)), desc='Evaluating'):
         correct = False
 
         # Get the model's response
-        decoded_input, decoded_output = run_inference(model, tokeniser, inputs[i])
+        output = pipe(inputs[i])[0]['generated_text']
         ground_truth = ground_truths[i]['answer']
 
         # Extract numerical output
-        extracted_output = extract_answer(decoded_output[0])
+        extracted_output = extract_answer(output)
         extracted_ground_truth = extract_answer(ground_truth, truth=True)
 
         if extracted_output == extracted_ground_truth:
@@ -172,8 +167,8 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
 
         # Save prompt, reponse, ground truth, and correctness to be saved in .json file
         results.append({
-            'model_prompt': decoded_input, 
-            'model_response': decoded_output,
+            'model_prompt': inputs[i], 
+            'model_response': output,
             'model_prediction': extracted_output,
             'ground_truth_text': ground_truth,
             'ground_truth_answer': extracted_ground_truth,
@@ -196,7 +191,7 @@ if __name__ == '__main__':
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
     CHAT_TEMPLATE_NAME = 'llama-3.1'                    # Chat template to use
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
-    DTYPE = None                                        # 'None' for auto-detection
+    DTYPE = 'auto'                                      # 'None' for auto-detection on unsloth
     LOAD_IN_4_BIT = True                                # Reduces memory usage
 
     # Loading the dataset
@@ -211,12 +206,14 @@ if __name__ == '__main__':
     #################################
 
     # 1. Initialise the model and tokeniser
-    loaded_model, loaded_tokeniser = init_unsloth(
+    login(token=HF_TOKEN)
+    loaded_model, loaded_tokeniser = init(
         model_name = MODEL_NAME, 
         max_seq_length = MAX_SEQ_LENGTH, 
         dtype = DTYPE, 
         load_in_4_bit = LOAD_IN_4_BIT
     )
+    check_vram_usage()
 
     # 2. Load and format the dataset
     raw_dataset, model_prompts = format_dataset(
@@ -227,6 +224,7 @@ if __name__ == '__main__':
         use_cot = USE_COT,
         tokeniser = loaded_tokeniser
     )
+    check_vram_usage()
 
     # 3. Evaluate the model
     model_results = evaluate_model(
@@ -244,5 +242,5 @@ if __name__ == '__main__':
         results = model_results
     )
 
-    # 6. Clear VRAM
+    # 5. Clear VRAM
     empty_vram(model = loaded_model, trainer = None)
