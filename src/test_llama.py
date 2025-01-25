@@ -187,7 +187,7 @@ if __name__ == '__main__':
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/Llama-3.2-3B-Instruct-bnb-4bit'
+    MODEL_NAME = 'unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit'
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
     CHAT_TEMPLATE_NAME = 'llama-3.1'                    # Chat template to use
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
@@ -198,7 +198,7 @@ if __name__ == '__main__':
     DATASET_NAME = 'openai/gsm8k'
     SUBSET_NAME = 'main'
     SPLIT_NAME = 'test'
-    USE_COT = True
+    USE_COT = False
     N_SHOT = 0
 
     #################################
