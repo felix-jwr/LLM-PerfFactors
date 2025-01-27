@@ -1,0 +1,13 @@
+Unused kwargs: ['_load_in_4bit', '_load_in_8bit', 'quant_method']. These kwargs are not used in <class 'transformers.utils.quantization_config.BitsAndBytesConfig'>.
+Downloading shards:   0%|          | 0/2 [00:00<?, ?it/s]Downloading shards:  50%|█████     | 1/2 [03:09<03:09, 189.17s/it]Downloading shards: 100%|██████████| 2/2 [06:16<00:00, 187.94s/it]Downloading shards: 100%|██████████| 2/2 [06:16<00:00, 188.12s/it]
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.52s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.47s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.48s/it]
+VRAM Usage: ['15.979GB']
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 285649.50 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 253681.54 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 21785.55it/s]
+VRAM Usage: ['15.979GB']
+Evaluating 1319 examples with batch size 4.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 27458.24it/s]
+Accuracy: 1022 / 1319 = 0.7748
+Finished in: 23068.68s (17.49s per example)
+Results saved to ../results/gemma-2-27b-it-bnb-4bit/openai_gsm8k_0-shot_nocot_20250126_173856.json
