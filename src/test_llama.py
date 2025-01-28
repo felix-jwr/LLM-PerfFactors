@@ -1,37 +1,15 @@
 import time
-import copy
 import torch
 from tqdm import tqdm
 from huggingface_hub import login
 from datasets import load_dataset
+from unsloth.chat_templates import get_chat_template
 from util import empty_vram, extract_answer, save_results, check_vram_usage
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig
 
 
 RANDOM_STATE = 42
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
-unsloth_template = \
-    "{{ bos_token }}"\
-    "{% if messages[0]['role'] == 'system' %}"\
-        "{{ messages[0]['content'] + '\n' }}"\
-        "{% set loop_messages = messages[1:] %}"\
-    "{% else %}"\
-        "{{ '{system_message}' + '\n' }}"\
-        "{% set loop_messages = messages %}"\
-    "{% endif %}"\
-    "{% for message in loop_messages %}"\
-        "{% if message['role'] == 'user' %}"\
-            "{{ '>>> User: ' + message['content'] + '\n' }}"\
-        "{% elif message['role'] == 'assistant' %}"\
-            "{{ '>>> Assistant: ' + message['content'] + eos_token + '\n' }}"\
-        "{% else %}"\
-            "{{ raise_exception('Only user and assistant roles are supported!') }}"\
-        "{% endif %}"\
-    "{% endfor %}"\
-    "{% if add_generation_prompt %}"\
-        "{{ '>>> Assistant: ' }}"\
-    "{% endif %}"
-pass
 
 
 def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) -> tuple:
@@ -39,13 +17,13 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
     Initialise Model and Tokeniser.
 
     args:
-        model_name: str, Name of the model to load from HF
-        max_seq_length: int, Maximum sequence length
-        bias: str, LoRA Bias (optimised for none)
+        model_name: str, Name of the model to load from HF.
+        max_seq_length: int, Maximum sequence length.
+        bias: str, LoRA Bias (optimised for none).
 
     returns:
-        model: AutoModelForCausalLM, The loaded HF model
-        tokeniser: AutoTokenizer, The loaded HF tokeniser
+        model: AutoModelForCausalLM, The loaded HF model.
+        tokeniser: AutoTokenizer, The loaded HF tokeniser.
     """
 
     # bnb_config = BitsAndBytesConfig(
@@ -68,18 +46,17 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
         trust_remote_code = True
     )
     tokeniser.pad_token = tokeniser.eos_token
-    tokeniser.padding_side = 'right'
+    tokeniser.padding_side = 'left'    # Pipeline wants padding on the left
 
     return model, tokeniser
 
 
-def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_name: str, use_cot: bool, tokeniser) -> tuple:
+def format_dataset(dataset_name: str, subset_name: str, split_name: str, use_cot: bool, tokeniser) -> tuple:
     """
     Load a dataset from HF, and apply preprocessing (i.e. formatting prompts using the chat template appropriate for 
     the model used).
 
     args:
-        model_name: str, The name of the model being used, to get corresponding Unsloth chat template.
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
         split_name: str, The name of the split to load (e.g. 'train', 'test').
@@ -97,15 +74,15 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
     # Configure the tokenizer with the template
     def format_prompt(example):
         # For each entry in the dataset, apply CoT if required
-        question = example['question']
+        question = example['question'] # NOTE: the 'question' field may need to change dep. on dataset
         if use_cot: question = f'{question} Let\'s think step by step.'
         message = [{'role': 'user', 'content': f'{question}'}]
 
         # Apply the chat template
         formatted_prompt = tokeniser.apply_chat_template(
             message,
-            tokenize=False,
-            add_generation_prompt=True,
+            tokenize=False, # We tokenise later
+            add_generation_prompt=True, 
         )
 
         return formatted_prompt
@@ -114,11 +91,13 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
     inputs = []
     for i in tqdm(range(len(dataset)), desc='Formatting prompts'):
         inputs.append( format_prompt(dataset[i]) )
+    # inputs = Dataset.from_dict({'text': inputs})
     
     return dataset, inputs
 
 
-def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict) -> list:
+def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, chat_template: str = 'unsloth',
+                   batch_size: int = 16) -> list:
     """
     Evaluate the model's accuracy given a set of decoded outputs and ground truths.
 
@@ -127,13 +106,15 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         tokeniser: (any), The (loaded) tokeniser.
         inputs: list, The inputs to the model.
         ground_truths: dict, The ground truths for the inputs.
+        chat_template: str, The chat template to use for the model. Default is 'unsloth'.
+        batch_size: int, The batch size to use for inference.
 
     returns:
         results: list, Prompt-response pairs, with the ground truth and correctness. Final element is overall accuracy.
     """
 
     # Configure model generator for inference
-    tokeniser.chat_template = unsloth_template
+    tokeniser = get_chat_template(tokeniser, chat_template = chat_template)
     pipe = pipeline(
         'text-generation',
         model = model,
@@ -143,18 +124,22 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
         temperature = 1.5,
         # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
-        min_p = 0.1
+        min_p = 0.1,
+        do_sample = True # Needed for Gemma 2
     )
 
+    i = 0
     results = []
     total_correct = 0
     total_examples = len(inputs)
+    start = time.time()
+    print(f'Evaluating {total_examples} examples with batch size {batch_size}.')
 
-    for i in tqdm(range(len(inputs)), desc='Evaluating'):
+    for output in tqdm(pipe(inputs, batch_size=batch_size), total=total_examples, desc='Evaluating'):
         correct = False
 
-        # Get the model's response
-        output = pipe(inputs[i])[0]['generated_text']
+        # Get the model response
+        output = output[0]['generated_text']
         ground_truth = ground_truths[i]['answer']
 
         # Extract numerical output
@@ -175,8 +160,12 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
             'correct': correct
         })
 
+        i += 1
+
+    end = time.time()
     results.append({'accuracy': total_correct / total_examples})
     print(f'Accuracy: {total_correct} / {total_examples} = {total_correct / total_examples :.4f}')
+    print(f'Finished in: {end - start:.2f}s ({(end - start) / total_examples:.2f}s per example)')
 
     return results
 
@@ -187,18 +176,19 @@ if __name__ == '__main__':
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit'
+    MODEL_NAME = 'unsloth/gemma-2-9b-it-bnb-4bit'
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
-    CHAT_TEMPLATE_NAME = 'llama-3.1'                    # Chat template to use
+    CHAT_TEMPLATE_NAME = 'gemma'                        # Chat template to use
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
-    DTYPE = 'auto'                                      # 'None' for auto-detection on unsloth
+    BATCH_SIZE = 8                                      # Batch size for inference
+    DTYPE = 'auto'                                      # 'None' for auto-detection (on unsloth)
     LOAD_IN_4_BIT = True                                # Reduces memory usage
 
     # Loading the dataset
     DATASET_NAME = 'openai/gsm8k'
     SUBSET_NAME = 'main'
     SPLIT_NAME = 'test'
-    USE_COT = False
+    USE_COT = True
     N_SHOT = 0
 
     #################################
@@ -217,7 +207,6 @@ if __name__ == '__main__':
 
     # 2. Load and format the dataset
     raw_dataset, model_prompts = format_dataset(
-        model_name = CHAT_TEMPLATE_NAME, 
         dataset_name = DATASET_NAME, 
         subset_name = SUBSET_NAME, 
         split_name = SPLIT_NAME, 
@@ -230,8 +219,10 @@ if __name__ == '__main__':
     model_results = evaluate_model(
         model = loaded_model,
         tokeniser = loaded_tokeniser,
+        chat_template = CHAT_TEMPLATE_NAME,
         inputs = model_prompts, 
-        ground_truths = raw_dataset
+        ground_truths = raw_dataset,
+        batch_size = BATCH_SIZE
     )
 
     # 4. Save the results
@@ -239,6 +230,7 @@ if __name__ == '__main__':
         model_name = MODEL_NAME_SHORT, 
         dataset_name = DATASET_NAME, 
         n_shot = N_SHOT, 
+        use_cot = USE_COT,
         results = model_results
     )
 
