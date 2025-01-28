@@ -1,0 +1,13 @@
+Unused kwargs: ['_load_in_4bit', '_load_in_8bit', 'quant_method']. These kwargs are not used in <class 'transformers.utils.quantization_config.BitsAndBytesConfig'>.
+Downloading shards:   0%|          | 0/2 [00:00<?, ?it/s]Downloading shards:  50%|█████     | 1/2 [01:59<01:59, 119.30s/it]Downloading shards: 100%|██████████| 2/2 [03:18<00:00, 95.42s/it] Downloading shards: 100%|██████████| 2/2 [03:18<00:00, 99.00s/it]
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:00<00:00,  1.15it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.41it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.36it/s]
+VRAM Usage: ['8.691GB']
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 307586.96 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 287063.46 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 15633.89it/s]
+VRAM Usage: ['8.691GB']
+Evaluating 1319 examples with batch size 8.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 24325.66it/s]
+Accuracy: 879 / 1319 = 0.6664
+Finished in: 7648.16s (5.80s per example)
+Results saved to ../results/Mistral-Nemo-Instruct-2407-bnb-4bit/openai_gsm8k_0-shot_cot_20250127_125758.json
