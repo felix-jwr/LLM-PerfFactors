@@ -127,11 +127,11 @@ def fine_tune_model(model: AutoModelForCausalLM, tokeniser: AutoTokenizer, datas
             per_device_train_batch_size = batch_size_per_gpu,   # Batch size per GPU
             gradient_accumulation_steps = 4,                    # Number of steps before backprop
             warmup_steps = 5,
-            # max_steps = 3,                                      # Number of training steps, overrides num_train_epochs
+            # max_steps = 3,                                    # Number of training steps, overrides num_train_epochs
             learning_rate = 2e-4,
             fp16 = not is_bfloat16_supported(),
             bf16 = is_bfloat16_supported(),
-            logging_steps = 50,                                 # Log updates every n steps, set to 0 to disable
+            logging_steps = 250,                                # Log updates every n steps, set to 0 to disable
             optim = 'adamw_8bit',
             weight_decay = 0.01,
             lr_scheduler_type = 'linear',

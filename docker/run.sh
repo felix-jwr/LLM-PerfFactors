@@ -7,9 +7,7 @@
 # mkdir -p /app/log/gsm8k
 # find /app/log -mindepth 1 -maxdepth 1 -type d -exec mv {} /app/log/gsm8k/ \;
 
-rm -rf /app/ft_outputs/*
-
 # Run the training and testing scripts
 cd /app/src
-python3 -u fine_tune.py 2>&1 | tee ../log/finetune-llama-3.1-8B-Instruct-bnb-4bit
-# python3 -u test_llama.py 2>&1 | tee ../log/test-llama-3.1-70B-Instruct-bnb-4bit-NoCoT
+python3 -u fine_tune.py 2>&1 | tee ../log/gsm8k/finetune/ft-llama-3.1-8B-Instruct-bnb-4bit
+# python3 -u test_llama.py 2>&1 | tee ../log/gsm8k/test/test-llama-3.1-70B-Instruct-bnb-4bit-NoCoT
