@@ -2,7 +2,7 @@ from trl import SFTTrainer
 from peft import LoraConfig
 from huggingface_hub import login
 from datasets import load_dataset
-from unsloth import is_bfloat16_supported
+# from unsloth import is_bfloat16_supported
 from util import empty_vram, check_vram_usage
 from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments
 
@@ -129,8 +129,10 @@ def fine_tune_model(model: AutoModelForCausalLM, tokeniser: AutoTokenizer, datas
             warmup_steps = 5,
             # max_steps = 3,                                    # Number of training steps, overrides num_train_epochs
             learning_rate = 2e-4,
-            fp16 = not is_bfloat16_supported(),
-            bf16 = is_bfloat16_supported(),
+            # fp16 = not is_bfloat16_supported(),
+            # bf16 = is_bfloat16_supported(),
+            fp16 = False,                                       # TODO: Change this back 
+            bf16 = True,
             logging_steps = 250,                                # Log updates every n steps, set to 0 to disable
             optim = 'adamw_8bit',
             weight_decay = 0.01,
@@ -155,7 +157,7 @@ if __name__ == '__main__':
     #################################
     
     # Model settings
-    MODEL_NAME = 'unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit'
+    MODEL_NAME = 'unsloth/Mistral-Small-Instruct-2409-bnb-4bit'
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
     BATCH_SIZE_PER_GPU = 2                              # Batch size PER GPU
