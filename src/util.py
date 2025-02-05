@@ -100,7 +100,7 @@ def extract_answer(text: str, eos: str = None, truth: bool = False) -> str:
     return ''
 
 
-def save_results(model_name: str, dataset_name: str, n_shot: int, results: list) -> None:
+def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool, results: list) -> None:
     """
     Save a results .json from a model evaluation.
 
@@ -108,20 +108,24 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, results: list)
         model_name: str, The model name. Should ideally be the short name (i.e. excluding 'unsloth/').
         dataset_name: str, The name of the dataset, 
         n_shot: int, The number of example questions used for the n-shot test.
+        use_cot: bool, Whether the 'Let's think step by step.' prompt was used.
         results: list, The results of model evaluation.
 
     returns:
         None
     """
 
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-
     # Clear up any slashes in the model name to avoid making directories
     model_name = model_name.replace('/', '_')
     dataset_name = dataset_name.replace('/', '_')
 
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     os.makedirs(f'../results/{model_name}', exist_ok=True)
-    result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_{timestamp}.json'
+
+    if use_cot:
+        result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
+    else:
+        result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
 
     with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)
