@@ -1,0 +1,15 @@
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+Downloading shards:   0%|          | 0/2 [00:00<?, ?it/s]Downloading shards:  50%|█████     | 1/2 [01:59<01:59, 119.07s/it]Downloading shards: 100%|██████████| 2/2 [03:18<00:00, 95.73s/it] Downloading shards: 100%|██████████| 2/2 [03:18<00:00, 99.23s/it]
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.01s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.20it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.16it/s]
+VRAM Usage: ['8.561GB']
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 270844.61 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 346027.46 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 19377.88it/s]
+VRAM Usage: ['8.561GB']
+Model does not have a padding token! Will use pad_token = <pad>.
+Evaluating 1319 examples with batch size 12.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 23954.69it/s]
+Accuracy: 906 / 1319 = 0.6869
+Finished in: 5656.77s (4.29s per example)
+Results saved to ../results/Mistral-Nemo-Instruct-2407-bnb-4bit/openai_gsm8k_0-shot_nocot_20250207_120746.json
