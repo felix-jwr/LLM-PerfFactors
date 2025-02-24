@@ -72,32 +72,28 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
     login(token=HF_TOKEN)
     dataset = load_dataset(dataset_name, subset_name, split=split_name)
 
-    # Configure the tokenizer with the template
-    tokeniser = get_chat_template(
-        tokeniser,
-        chat_template=model_name.split('/')[-1],
-    )
-    
-    def format_prompt(example):
-        # For each entry in the dataset, apply CoT if required
-        question = example['question']
-        if use_cot: question = f'{question} Let\'s think step by step.'
-        message = [{'role': 'user', 'content': f'{question}'}]
+    # Prompt format
+    prompt_format = """Below is an instruction that describes a task. Write a response that appropriately completes the request.
 
-        # Apply the chat template
-        formatted_prompt = tokeniser.apply_chat_template(
-            message,
-            tokenize=True,
-            add_generation_prompt=True,
-            return_tensors='pt'
-        ).to('cuda')
+    ### Instruction:
+    {}
 
-        return formatted_prompt
-    
+    ### Response:
+    {}
+    """
+
     # Apply the formatting
     inputs = []
+    EOS_TOKEN = tokeniser.eos_token
+
     for i in tqdm(range(len(dataset)), desc='Formatting prompts'):
-        inputs.append( format_prompt(dataset[i]) )
+        question = dataset[i]['question'] # NOTE: the 'question' field may need to change dep. on dataset
+        
+        if use_cot: 
+            question = f'{question} Let\'s think step by step.'
+
+        question = prompt_format.format(question, '')   # Leave response blank for generation
+        inputs.append( question + EOS_TOKEN)
     
     return dataset, inputs
 
@@ -153,11 +149,13 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
     total_examples = len(inputs)
     FastLanguageModel.for_inference(model)
 
-    for i in tqdm(range(total_examples), desc='Evaluating model'):
+    for i in tqdm(range(total_examples), desc='Processing Results'):
         correct = False
 
         # Get the model's response
-        decoded_input, decoded_output = run_inference(model, tokeniser, inputs[i])
+        tokenised_inputs = tokeniser(inputs[i], return_tensors = 'pt', padding = True).to('cuda')
+        output = model.generate(**tokenised_inputs, max_new_tokens=MAX_SEQ_LENGTH, use_cache=True)
+        decoded_output = tokeniser.batch_decode(output, skip_special_tokens=True)
         ground_truth = ground_truths[i]['answer']
 
         # Extract numerical output
@@ -170,7 +168,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
 
         # Save prompt, reponse, ground truth, and correctness to be saved in .json file
         results.append({
-            'model_prompt': decoded_input, 
+            'model_prompt': inputs[i], 
             'model_response': decoded_output,
             'model_prediction': extracted_output,
             'ground_truth_text': ground_truth,
@@ -190,9 +188,9 @@ if __name__ == '__main__':
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/DeepSeek-R1-Distill-Qwen-32B-bnb-4bit'
+    MODEL_NAME = 'unsloth/gemma-2-9b-it-bnb-4bit'
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
-    CHAT_TEMPLATE_NAME = 'llama-3.1'                    # Chat template to use
+    CHAT_TEMPLATE_NAME = 'gemma'                        # Chat template to use
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
     DTYPE = None                                        # 'None' for auto-detection
     LOAD_IN_4_BIT = True                                # Reduces memory usage
@@ -219,30 +217,30 @@ if __name__ == '__main__':
     check_vram_usage()
 
     # 2. Load and format the dataset
-    # raw_dataset, model_prompts = format_dataset(
-    #     model_name = CHAT_TEMPLATE_NAME, 
-    #     dataset_name = DATASET_NAME, 
-    #     subset_name = SUBSET_NAME, 
-    #     split_name = SPLIT_NAME, 
-    #     use_cot = USE_COT,
-    #     tokeniser = loaded_tokeniser
-    # )
+    raw_dataset, model_prompts = format_dataset(
+        model_name = CHAT_TEMPLATE_NAME, 
+        dataset_name = DATASET_NAME, 
+        subset_name = SUBSET_NAME, 
+        split_name = SPLIT_NAME, 
+        use_cot = USE_COT,
+        tokeniser = loaded_tokeniser
+    )
 
-    # # 3. Evaluate the model
-    # model_results = evaluate_model(
-    #     model = loaded_model,
-    #     tokeniser = loaded_tokeniser,
-    #     inputs = model_prompts, 
-    #     ground_truths = raw_dataset
-    # )
+    # 3. Evaluate the model
+    model_results = evaluate_model(
+        model = loaded_model,
+        tokeniser = loaded_tokeniser,
+        inputs = model_prompts, 
+        ground_truths = raw_dataset
+    )
 
-    # # 4. Save the results
-    # save_results(
-    #     model_name = MODEL_NAME_SHORT, 
-    #     dataset_name = DATASET_NAME, 
-    #     n_shot = N_SHOT, 
-    #     results = model_results
-    # )
+    # 4. Save the results
+    save_results(
+        model_name = MODEL_NAME_SHORT, 
+        dataset_name = DATASET_NAME, 
+        n_shot = N_SHOT, 
+        results = model_results
+    )
 
     # 6. Clear VRAM
     empty_vram(model = loaded_model, trainer = None)

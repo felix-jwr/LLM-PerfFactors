@@ -176,11 +176,11 @@ if __name__ == '__main__':
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/phi-4-bnb-4bit'
+    MODEL_NAME = 'unsloth/Mistral-Small-Instruct-2409-bnb-4bit'
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]        # Used for saving results
     CHAT_TEMPLATE_NAME = 'unsloth'                      # Chat template to use
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
-    BATCH_SIZE = 10                                     # Batch size for inference
+    BATCH_SIZE = 8                                      # Batch size for inference
     DTYPE = 'auto'                                      # 'None' for auto-detection (on unsloth)
     LOAD_IN_4_BIT = True                                # Reduces memory usage
 
@@ -188,7 +188,7 @@ if __name__ == '__main__':
     DATASET_NAME = 'openai/gsm8k'
     SUBSET_NAME = 'main'
     SPLIT_NAME = 'test'
-    USE_COT = False
+    USE_COT = True
     N_SHOT = 0
 
     #################################

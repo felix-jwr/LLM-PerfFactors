@@ -157,7 +157,7 @@ if __name__ == '__main__':
     #################################
     
     # Model settings
-    MODEL_NAME = 'unsloth/Mistral-Small-Instruct-2409-bnb-4bit'
+    MODEL_NAME = 'unsloth/phi-4-bnb-4bit'
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
     BATCH_SIZE_PER_GPU = 2                              # Batch size PER GPU
