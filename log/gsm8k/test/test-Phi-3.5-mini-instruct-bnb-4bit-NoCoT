@@ -1,0 +1,13 @@
+🦥 Unsloth: Will patch your computer to enable 2x faster free finetuning.
+🦥 Unsloth Zoo will now patch everything to make training faster!
+VRAM Usage: ['2.801GB']
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 359219.24 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 486183.93 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 39778.30it/s]
+VRAM Usage: ['2.801GB']
+Model does not have a padding token! Will use pad_token = <|placeholder6|>.
+Evaluating 1319 examples with batch size 10.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 14099.09it/s]
+Accuracy: 19 / 1319 = 0.0144
+Finished in: 15723.26s (11.92s per example)
+Results saved to ../results/Phi-3.5-mini-instruct-bnb-4bit/openai_gsm8k_0-shot_nocot_20250206_134742.json
