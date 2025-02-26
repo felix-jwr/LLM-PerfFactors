@@ -167,3 +167,31 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int) 
     # prompts.append({"role": "user", "content": question_prompt(question) + " You MUST write the answer as an integer after '####'."})
 
     return prompts
+
+
+def print_setup(parameters: dict = None) -> None:
+    """
+    Print the system information and parameters to the console.
+
+    args:
+        parameters: dict, The parameters to print.
+    
+    returns:
+        None
+    """
+
+    # Print system information
+    print('GPU:', torch.cuda.get_device_name())
+    print('GPU VRAM:', torch.cuda.get_device_properties(0).total_memory / 1024**3, 'GB')
+    print('CUDA Version:', torch.version.cuda)
+    print('PyTorch Version:', torch.__version__)
+    print('Python Version:', torch.__version__)
+    print('Random Seed:', torch.initial_seed())
+    print('Current Time:', datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+    # Print parameters
+    if parameters:
+        print('\nParameters:')
+        for key, value in parameters.items():
+            print(f'{key}: {value}')
+    print('\n')

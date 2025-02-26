@@ -6,7 +6,7 @@ from datasets import load_dataset
 from huggingface_hub import login
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
-from util import empty_vram, extract_answer, save_results, check_vram_usage
+from util import empty_vram, extract_answer, save_results, check_vram_usage, print_setup
 
 
 RANDOM_STATE = 42
@@ -154,7 +154,15 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
 
         # Get the model's response
         tokenised_inputs = tokeniser(inputs[i], return_tensors = 'pt', padding = True).to('cuda')
-        output = model.generate(**tokenised_inputs, max_new_tokens=MAX_SEQ_LENGTH, use_cache=True)
+        output = model.generate(
+            **tokenised_inputs, 
+            max_new_tokens = MAX_SEQ_LENGTH, 
+            # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
+            use_cache = True, 
+            # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
+            temperature = 1.5, 
+            min_p = 0.1
+        )
         decoded_output = tokeniser.batch_decode(output, skip_special_tokens=True)
         ground_truth = ground_truths[i]['answer']
 
@@ -188,9 +196,9 @@ if __name__ == '__main__':
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/gemma-2-9b-it-bnb-4bit'
-    MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]    # Used for saving results
-    CHAT_TEMPLATE_NAME = 'gemma'                        # Chat template to use
+    MODEL_NAME = 'unsloth/Llama-3.2-3B-Instruct-bnb-4bit'
+    MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]        # Used for saving results
+    CHAT_TEMPLATE_NAME = 'unsloth'                      # Chat template to use
     MAX_SEQ_LENGTH = 2048                               # Max. input length  
     DTYPE = None                                        # 'None' for auto-detection
     LOAD_IN_4_BIT = True                                # Reduces memory usage
@@ -206,6 +214,22 @@ if __name__ == '__main__':
     # DO NOT MODIFY BELOW THIS LINE #
     #################################
 
+    # 0. Print settings
+    params = {
+        'MODEL_NAME': MODEL_NAME,
+        'MODEL_NAME_SHORT': MODEL_NAME_SHORT,
+        'CHAT_TEMPLATE_NAME': CHAT_TEMPLATE_NAME,
+        'MAX_SEQ_LENGTH': MAX_SEQ_LENGTH,
+        'DTYPE': DTYPE,
+        'LOAD_IN_4_BIT': LOAD_IN_4_BIT,
+        'DATASET_NAME': DATASET_NAME,
+        'SUBSET_NAME': SUBSET_NAME,
+        'SPLIT_NAME': SPLIT_NAME,
+        'USE_COT': USE_COT,
+        'N_SHOT': N_SHOT
+    }
+    print_setup(parameters=params)
+
     # 1. Initialise the model and tokeniser
     loaded_model, loaded_tokeniser = init_unsloth(
         model_name = MODEL_NAME, 
@@ -213,7 +237,6 @@ if __name__ == '__main__':
         dtype = DTYPE, 
         load_in_4_bit = LOAD_IN_4_BIT
     )
-
     check_vram_usage()
 
     # 2. Load and format the dataset
@@ -239,6 +262,7 @@ if __name__ == '__main__':
         model_name = MODEL_NAME_SHORT, 
         dataset_name = DATASET_NAME, 
         n_shot = N_SHOT, 
+        use_cot = USE_COT,
         results = model_results
     )
 
