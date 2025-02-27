@@ -1,6 +1,5 @@
-import time
-import copy
 import torch
+import argparse
 from tqdm import tqdm
 from datasets import load_dataset
 from huggingface_hub import login
@@ -192,23 +191,60 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
 
 if __name__ == '__main__':
     #################################
+    #     LOAD SETTINGS FROM CLI    #
+    #################################
+
+        # Set up argument parser
+    parser = argparse.ArgumentParser(description='Run single GPU inference test with LLM model')
+    
+    # Model parameters
+    parser.add_argument('--model_name', type=str, default='unsloth/Llama-3.1-8B-Instruct-bnb-4bit',
+                        help='Name of the model to load from HF')
+    parser.add_argument('--chat_template', type=str, default='unsloth',
+                        help='Chat template to use')
+    parser.add_argument('--max_seq_length', type=int, default=2048,
+                        help='Maximum sequence length')
+    parser.add_argument('--dtype', type=str, default=None,
+                        help='Data type (None for auto-detection)')
+    parser.add_argument('--load_in_4bit', action='store_true', default=True,
+                        help='Whether to load model in 4-bit precision')
+    parser.add_argument('--no_4bit', action='store_false', dest='load_in_4bit',
+                        help='Disable 4-bit quantization')
+    
+    # Dataset parameters
+    parser.add_argument('--dataset', type=str, default='openai/gsm8k',
+                        help='Dataset name to load from HF')
+    parser.add_argument('--subset', type=str, default='main',
+                        help='Dataset subset name')
+    parser.add_argument('--split', type=str, default='test',
+                        help='Dataset split name')
+    parser.add_argument('--use_cot', action='store_true', default=True,
+                        help='Use chain-of-thought prompting')
+    parser.add_argument('--no_cot', action='store_false', dest='use_cot',
+                        help='Disable chain-of-thought prompting')
+    parser.add_argument('--n_shot', type=int, default=0,
+                        help='Number of examples for few-shot prompting')
+    
+    args = parser.parse_args()
+
+    #################################
     #            SETTINGS           #
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/Llama-3.2-3B-Instruct-bnb-4bit'
+    MODEL_NAME = args.model_name
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]        # Used for saving results
-    CHAT_TEMPLATE_NAME = 'unsloth'                      # Chat template to use
-    MAX_SEQ_LENGTH = 2048                               # Max. input length  
-    DTYPE = None                                        # 'None' for auto-detection
-    LOAD_IN_4_BIT = True                                # Reduces memory usage
+    CHAT_TEMPLATE_NAME = args.chat_template             # Chat template to use
+    MAX_SEQ_LENGTH = args.max_seq_length                # Max. input length  
+    DTYPE = args.dtype                                  # 'None' for auto-detection
+    LOAD_IN_4_BIT = args.load_in_4bit                   # Reduces memory usage
 
     # Loading the dataset
-    DATASET_NAME = 'openai/gsm8k'
-    SUBSET_NAME = 'main'
-    SPLIT_NAME = 'test'
-    USE_COT = True
-    N_SHOT = 0
+    DATASET_NAME = args.dataset
+    SUBSET_NAME = args.subset
+    SPLIT_NAME = args.split
+    USE_COT = args.use_cot
+    N_SHOT = args.n_shot
 
     #################################
     # DO NOT MODIFY BELOW THIS LINE #
