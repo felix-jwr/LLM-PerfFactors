@@ -5,10 +5,9 @@ from datasets import load_dataset
 from huggingface_hub import login
 from unsloth import FastLanguageModel
 from unsloth.chat_templates import get_chat_template
-from util import empty_vram, extract_answer, save_results, check_vram_usage, print_setup
+from util import empty_vram, extract_answer, save_results, check_vram_usage, print_setup, generate_n_shot_prompt
 
 
-RANDOM_STATE = 42
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
 
@@ -49,7 +48,7 @@ def init_unsloth(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit
     return model, tokeniser
 
 
-def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_name: str, use_cot: bool, tokeniser) -> tuple:
+def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot: int, use_cot: bool, tokeniser) -> tuple:
     """
     Load a dataset from HF, and apply preprocessing (i.e. formatting prompts using the chat template appropriate for 
     the model used).
@@ -58,7 +57,7 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
         model_name: str, The name of the model being used, to get corresponding Unsloth chat template.
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
-        split_name: str, The name of the split to load (e.g. 'train', 'test').
+        n_shot: int, The number of example question/answer pairs to include in the prompt.
         use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
         tokeniser: (any), The tokeniser to use for formatting the prompts.
 
@@ -69,30 +68,39 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, split_n
 
     # Load the dataset from HF
     login(token=HF_TOKEN)
-    dataset = load_dataset(dataset_name, subset_name, split=split_name)
+    train_test_data = load_dataset(dataset_name, subset_name)
+    dataset = train_test_data['test']
+
+    # Format training data so they can be randomly sampled for n-shot prompts
+    n_shot_data = train_test_data['train']
+    n_shot_data = n_shot_data.to_pandas()
+    n_shot_data = n_shot_data.to_dict(orient='records')
 
     # Prompt format
-    prompt_format = """Below is an instruction that describes a task. Write a response that appropriately completes the request.
+    # TODO: Unsure if this is needed
+    tokeniser = get_chat_template(
+        tokenizer = tokeniser,
+        chat_template = model_name
+    )
 
-    ### Instruction:
-    {}
+    # The default gsm8k prompt from the CoT paper
+    # https://arxiv.org/pdf/2201.11903.pdf page 35.
 
-    ### Response:
-    {}
-    """
-
-    # Apply the formatting
+    # Apply formatting
     inputs = []
-    EOS_TOKEN = tokeniser.eos_token
-
     for i in tqdm(range(len(dataset)), desc='Formatting prompts'):
         question = dataset[i]['question'] # NOTE: the 'question' field may need to change dep. on dataset
         
-        if use_cot: 
-            question = f'{question} Let\'s think step by step.'
+        prompt = generate_n_shot_prompt(
+            n_shot_data = n_shot_data,
+            n = n_shot,
+            question = question,
+            seed = RANDOM_STATE,
+            use_cot = use_cot
+        )
 
-        question = prompt_format.format(question, '')   # Leave response blank for generation
-        inputs.append( question + EOS_TOKEN)
+        prompt = tokeniser.apply_chat_template(prompt, tokenize = False, add_generation_prompt = False)
+        inputs.append( prompt ) # May need to add EOS_TOKEN
     
     return dataset, inputs
 
@@ -104,7 +112,7 @@ def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> t
     args:
         model: FastLanguageModel, The (loaded) model.
         tokeniser: (any), The (loaded) tokeniser.
-        input: tensor, The inputs to the model.
+        input: tensor, The inputs to the model.,drjgeign 
 
     returns:
         decoded_input: list, The decoded input from the model.
@@ -194,7 +202,7 @@ if __name__ == '__main__':
     #     LOAD SETTINGS FROM CLI    #
     #################################
 
-        # Set up argument parser
+    # Set up argument parser
     parser = argparse.ArgumentParser(description='Run single GPU inference test with LLM model')
     
     # Model parameters
@@ -212,6 +220,8 @@ if __name__ == '__main__':
                         help='Disable 4-bit quantization')
     
     # Dataset parameters
+    parser.add_argument('--random_seed', type=int, default=42,
+                        help='Fix random seed to ensure reproducibility')
     parser.add_argument('--dataset', type=str, default='openai/gsm8k',
                         help='Dataset name to load from HF')
     parser.add_argument('--subset', type=str, default='main',
@@ -240,6 +250,7 @@ if __name__ == '__main__':
     LOAD_IN_4_BIT = args.load_in_4bit                   # Reduces memory usage
 
     # Loading the dataset
+    RANDOM_STATE = args.random_seed
     DATASET_NAME = args.dataset
     SUBSET_NAME = args.subset
     SPLIT_NAME = args.split
@@ -251,6 +262,7 @@ if __name__ == '__main__':
     #################################
 
     # 0. Print settings
+    torch.manual_seed(RANDOM_STATE)
     params = {
         'MODEL_NAME': MODEL_NAME,
         'MODEL_NAME_SHORT': MODEL_NAME_SHORT,
@@ -280,7 +292,7 @@ if __name__ == '__main__':
         model_name = CHAT_TEMPLATE_NAME, 
         dataset_name = DATASET_NAME, 
         subset_name = SUBSET_NAME, 
-        split_name = SPLIT_NAME, 
+        n_shot = N_SHOT, 
         use_cot = USE_COT,
         tokeniser = loaded_tokeniser
     )

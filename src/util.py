@@ -133,7 +133,7 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
     print(f'Results saved to {result_file}')
 
 
-def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int) -> str:
+def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, use_cot: bool) -> str:
     """
     Generate a prompt for the model with n example questions for an n-shot prompt.
 
@@ -142,29 +142,33 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int) 
         n: int, The number of example questions to include. Must be > 0.
         question: str, The actual prompt from the test set.
         seed: int, The random seed to use for reproducibility.
+        use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
 
     returns:
         string: str, The n-shot prompt for the model.
     """
 
     def question_prompt(string):
-        return f"Q: {string}"
+        return f'Q: {string}'
 
-    def answer_prompt(string):
-        return f"A: {string}"
+    def answer_prompt(string, use_cot):
+        if use_cot:
+            return f'A: {string}'
+        else:
+            return f'A: {extract_answer(string, truth=True)}'   # Only give the answer, not the working, for non-cot
 
+    # Get random samples from the training set to use as n-shot examples
     prompts = []
-
     random.seed(seed)
+    # TODO: Removing "Q:, A:" from prompt to investigate effect to performance (if any)
     for question_and_answer in random.sample(n_shot_data, n):
-        prompts.append({"role": "user", "content": question_prompt(question_and_answer["question"])})
-        prompts.append({"role": "assistant", "content": answer_prompt(question_and_answer["answer"])})
+        prompts.append({'role': 'user', 'content': question_and_answer['question']})
+        prompts.append({'role': 'assistant', 'content': question_and_answer['answer']})
 
-    # TODO: Refactor this to use flag
-    # CoT Prompt
-    prompts.append({"role": "user", "content": question_prompt(question) + " Let's think step by step. At the end, you MUST write the answer as an integer after '####'."})
-    # No CoT
-    # prompts.append({"role": "user", "content": question_prompt(question) + " You MUST write the answer as an integer after '####'."})
+    if use_cot:
+        prompts.append({'role': 'user', 'content': question + ' Let\'s think step by step.'})
+    else:
+        prompts.append({'role': 'user', 'content': question})
 
     return prompts
 
@@ -194,4 +198,4 @@ def print_setup(parameters: dict = None) -> None:
         print('\nParameters:')
         for key, value in parameters.items():
             print(f'{key}: {value}')
-    print('\n')
+    print()
