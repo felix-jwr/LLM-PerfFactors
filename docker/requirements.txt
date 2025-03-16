@@ -1,12 +1,12 @@
-trl
-peft
+# trl
+# peft
 tqdm
 nvidia-ml-py
 matplotlib
 huggingface_hub
-vllm
-accelerate
-tensorboard
-bitsandbytes
-transformers
+# vllm
+# accelerate
+# tensorboard
+# bitsandbytes
+# transformers
 unsloth

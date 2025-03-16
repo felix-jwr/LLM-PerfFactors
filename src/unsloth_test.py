@@ -1,50 +1,37 @@
 import time
 import torch
 import argparse
-import transformers
 from tqdm import tqdm
-from huggingface_hub import login
 from datasets import load_dataset
-# from unsloth.chat_templates import get_chat_template
+from huggingface_hub import login
+from unsloth import FastLanguageModel
+from unsloth.chat_templates import get_chat_template
 from util import empty_vram, extract_answer, save_results, check_vram_usage, print_setup, generate_n_shot_prompt
 
 
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
 
-def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) -> tuple:
+def init_unsloth(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) -> tuple:
     """
-    Initialise Model and Tokeniser.
+    Initialise Model and Tokeniser using Unsloth.
 
     args:
-        model_name: str, Name of the model to load from HF.
-        max_seq_length: int, Maximum sequence length.
-        bias: str, LoRA Bias (optimised for none).
+        model_name: str, Name of the model to load from HF
+        max_seq_length: int, Maximum sequence length
 
     returns:
-        model: AutoModelForCausalLM, The loaded HF model.
-        tokeniser: AutoTokenizer, The loaded HF tokeniser.
+        model: FastLanguageModel, The loaded HF model
+        tokeniser: FastTokeniser, The loaded HF tokeniser
     """
 
-    login(token=HF_TOKEN)
-
-    bnb_config = transformers.BitsAndBytesConfig(
-        load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
-        bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
-        bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
-        bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
-    )
-
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_name,
+    model, tokeniser = FastLanguageModel.from_pretrained(
+        model_name = model_name,
+        max_seq_length = max_seq_length,
+        dtype = dtype,
+        load_in_4bit = load_in_4_bit,
         device_map = 'auto',
-        quantization_config = bnb_config,
-        token = HF_TOKEN,
-    )
-
-    tokeniser = transformers.AutoTokenizer.from_pretrained(
-        model_name, 
-        token=HF_TOKEN, 
+        token = HF_TOKEN
     )
 
     return model, tokeniser
@@ -59,7 +46,7 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot:
         model_name: str, The name of the model being used, to get corresponding Unsloth chat template.
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
-        split_name: str, The name of the split to load (e.g. 'train', 'test').
+        n_shot: int, The number of example question/answer pairs to include in the prompt.
         use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
         tokeniser: (any), The tokeniser to use for formatting the prompts.
 
@@ -95,6 +82,39 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot:
     # )
     
     return test_data, inputs
+
+
+def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> tuple:
+    """
+    Run inference on the model, generating responses to the given inputs.
+
+    args:
+        model: FastLanguageModel, The (loaded) model.
+        tokeniser: (any), The (loaded) tokeniser.
+        input: tensor, The inputs to the model.,drjgeign 
+
+    returns:
+        decoded_input: list, The decoded input from the model.
+        decoded_output: list, The decoded output from the model.
+    """
+
+    output = model.generate(
+        input_ids = input,
+        tokenizer = tokeniser,
+        max_new_tokens = MAX_SEQ_LENGTH,
+        pad_token_id = tokeniser.eos_token_id,
+        # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
+        use_cache = True, 
+        # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
+        temperature = 1.5, 
+        min_p = 0.1
+    )
+
+    decoded_input = tokeniser.batch_decode(input, skip_special_tokens=True)
+    decoded_output = tokeniser.batch_decode(output, skip_special_tokens=True)
+
+    return decoded_input, decoded_output
+
 
 def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, batch_size: int = 1) -> list:
     """
@@ -253,7 +273,7 @@ if __name__ == '__main__':
     print_setup(parameters=params)
 
     # 1. Initialise the model and tokeniser
-    loaded_model, loaded_tokeniser = init(
+    loaded_model, loaded_tokeniser = init_unsloth(
         model_name = MODEL_NAME, 
         max_seq_length = MAX_SEQ_LENGTH, 
         dtype = DTYPE, 
