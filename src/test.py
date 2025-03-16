@@ -1,14 +1,14 @@
 import time
 import torch
+import argparse
+import transformers
 from tqdm import tqdm
 from huggingface_hub import login
 from datasets import load_dataset
-from unsloth.chat_templates import get_chat_template
-from util import empty_vram, extract_answer, save_results, check_vram_usage
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, BitsAndBytesConfig
+# from unsloth.chat_templates import get_chat_template
+from util import empty_vram, extract_answer, save_results, check_vram_usage, print_setup, generate_n_shot_prompt
 
 
-RANDOM_STATE = 42
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
 
@@ -26,37 +26,37 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
         tokeniser: AutoTokenizer, The loaded HF tokeniser.
     """
 
-    # bnb_config = BitsAndBytesConfig(
-    #     load_in_4bit = load_in_4_bit,           # Activate 4-bit precision base model loading
-    #     bnb_4bit_quant_type = 'nf4',            # Quantisation type (fp4 or nf4)
-    #     bnb_4bit_compute_dtype = 'float16',     # Compute dtype for 4-bit base models
-    #     bnb_4bit_use_double_quant = False,      # Activate nested quantisation for 4-bit base models (double quant)
-    # )
+    login(token=HF_TOKEN)
 
-    model = AutoModelForCausalLM.from_pretrained(
+    bnb_config = transformers.BitsAndBytesConfig(
+        load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
+        bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
+        bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
+        bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
+    )
+
+    model = transformers.AutoModelForCausalLM.from_pretrained(
         model_name,
-        torch_dtype = dtype,
-        # quantization_config = bnb_config,
         device_map = 'auto',
-        trust_remote_code = True
+        quantization_config = bnb_config,
+        token = HF_TOKEN,
     )
 
-    tokeniser = AutoTokenizer.from_pretrained(
-        model_name,
-        trust_remote_code = True
+    tokeniser = transformers.AutoTokenizer.from_pretrained(
+        model_name, 
+        token=HF_TOKEN, 
     )
-    tokeniser.pad_token = tokeniser.eos_token
-    tokeniser.padding_side = 'left'    # Pipeline wants padding on the left
 
     return model, tokeniser
 
 
-def format_dataset(dataset_name: str, subset_name: str, split_name: str, use_cot: bool, tokeniser) -> tuple:
+def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot: int, use_cot: bool, tokeniser) -> tuple:
     """
     Load a dataset from HF, and apply preprocessing (i.e. formatting prompts using the chat template appropriate for 
     the model used).
 
     args:
+        model_name: str, The name of the model being used, to get corresponding Unsloth chat template.
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
         split_name: str, The name of the split to load (e.g. 'train', 'test').
@@ -69,35 +69,34 @@ def format_dataset(dataset_name: str, subset_name: str, split_name: str, use_cot
     """
 
     # Load the dataset from HF
-    dataset = load_dataset(dataset_name, subset_name, split=split_name)
+    all_data = load_dataset(dataset_name, subset_name)
+    test_data = all_data["test"].to_list()
+    train_data = all_data["train"].to_list()
 
-    # Configure the tokenizer with the template
-    def format_prompt(example):
-        # For each entry in the dataset, apply CoT if required
-        question = example['question'] # NOTE: the 'question' field may need to change dep. on dataset
-        if use_cot: question = f'{question} Let\'s think step by step.'
-        message = [{'role': 'user', 'content': f'{question}'}]
-
-        # Apply the chat template
-        formatted_prompt = tokeniser.apply_chat_template(
-            message,
-            tokenize=False, # We tokenise later
-            add_generation_prompt=True, 
-        )
-
-        return formatted_prompt
-    
-    # Apply the formatting
+    # Format training data so they can be randomly sampled for n-shot prompts
     inputs = []
-    for i in tqdm(range(len(dataset)), desc='Formatting prompts'):
-        inputs.append( format_prompt(dataset[i]) )
-    # inputs = Dataset.from_dict({'text': inputs})
+    for i in tqdm(range(len(test_data)), desc='Formatting prompts'):
+        # The default gsm8k prompt from the CoT paper
+        # https://arxiv.org/pdf/2201.11903.pdf page 35.
+        prompt = generate_n_shot_prompt(
+            n_shot_data = train_data, 
+            n = n_shot, 
+            question = test_data[i]['question'],
+            seed = RANDOM_STATE, 
+            use_cot = use_cot
+        )
+        inputs.append( prompt ) # May need to add EOS_TOKEN
+
+    # Prompt format
+    # TODO: Unsure if this is needed
+    # tokeniser = get_chat_template(
+    #     tokenizer = tokeniser,
+    #     chat_template = model_name
+    # )
     
-    return dataset, inputs
+    return test_data, inputs
 
-
-def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, chat_template: str = 'unsloth',
-                   batch_size: int = 16) -> list:
+def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, batch_size: int = 1) -> list:
     """
     Evaluate the model's accuracy given a set of decoded outputs and ground truths.
 
@@ -114,57 +113,58 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
     """
 
     # Configure model generator for inference
-    tokeniser = get_chat_template(tokeniser, chat_template = chat_template)
-    pipe = pipeline(
+    # tokeniser = get_chat_template(tokeniser, chat_template = chat_template)
+    tokeniser.pad_token = tokeniser.eos_token
+    tokeniser.padding_side = 'left'    # NOTE: Pipeline wants padding on the left (?)
+    pipe = transformers.pipeline(
         'text-generation',
         model = model,
         tokenizer = tokeniser,
         max_new_tokens = MAX_SEQ_LENGTH,
         pad_token_id = tokeniser.eos_token_id,
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
-        temperature = 1.5,
+        # temperature = 1.5,
         # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
-        min_p = 0.1,
-        do_sample = True # Needed for Gemma 2
+        # min_p = 0.1,
+        # do_sample = True # NOTE: Needed for Gemma 2
     )
 
-    i = 0
-    results = []
-    total_correct = 0
-    total_examples = len(inputs)
     start = time.time()
+    results = []
+    total = num_correct = 0
+    total_examples = len(inputs)
     print(f'Evaluating {total_examples} examples with batch size {batch_size}.')
 
     for output in tqdm(pipe(inputs, batch_size=batch_size), total=total_examples, desc='Evaluating'):
-        correct = False
+        correct_flag = False
 
         # Get the model response
-        output = output[0]['generated_text']
-        ground_truth = ground_truths[i]['answer']
+        # [0] get dict, ['generated_text'] for output, [-1] for response to prompt, ['content'] for the actual text
+        response = output[0]['generated_text'][-1]['content']
+        ground_truth = ground_truths[total]['answer']
 
         # Extract numerical output
-        extracted_output = extract_answer(output)
+        extracted_output = extract_answer(response)
         extracted_ground_truth = extract_answer(ground_truth, truth=True)
 
         if extracted_output == extracted_ground_truth:
-            correct = True
-            total_correct += 1
+            correct_flag = True
+            num_correct += 1
 
         # Save prompt, reponse, ground truth, and correctness to be saved in .json file
         results.append({
-            'model_prompt': inputs[i], 
+            'model_prompt': inputs[total], 
             'model_response': output,
             'model_prediction': extracted_output,
             'ground_truth_text': ground_truth,
             'ground_truth_answer': extracted_ground_truth,
-            'correct': correct
+            'correct': correct_flag
         })
-
-        i += 1
+        total += 1
 
     end = time.time()
-    results.append({'accuracy': total_correct / total_examples})
-    print(f'Accuracy: {total_correct} / {total_examples} = {total_correct / total_examples :.4f}')
+    results.append({'accuracy': num_correct / total_examples})
+    print(f'Accuracy: {num_correct} / {total_examples} = {num_correct / total_examples :.4f}')
     print(f'Finished in: {end - start:.2f}s ({(end - start) / total_examples:.2f}s per example)')
 
     return results
@@ -172,31 +172,87 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
 
 if __name__ == '__main__':
     #################################
+    #     LOAD SETTINGS FROM CLI    #
+    #################################
+
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Run single GPU inference test with LLM model')
+    
+    # Model parameters
+    parser.add_argument('--model_name', type=str, default='unsloth/Llama-3.1-8B-Instruct-bnb-4bit',
+                        help='Name of the model to load from HF')
+    parser.add_argument('--chat_template', type=str, default='unsloth',
+                        help='Chat template to use')
+    parser.add_argument('--max_seq_length', type=int, default=2048,
+                        help='Maximum sequence length')
+    parser.add_argument('--load_in_4bit', action='store_true', default=True,
+                        help='Whether to load model in 4-bit precision')
+    parser.add_argument('--no_4bit', action='store_false', dest='load_in_4bit',
+                        help='Disable 4-bit quantization')
+    
+    # Dataset parameters
+    parser.add_argument('--random_seed', type=int, default=42,
+                        help='Fix random seed to ensure reproducibility')
+    parser.add_argument('--dataset', type=str, default='openai/gsm8k',
+                        help='Dataset name to load from HF')
+    parser.add_argument('--subset', type=str, default='main',
+                        help='Dataset subset name')
+    parser.add_argument('--split', type=str, default='test',
+                        help='Dataset split name')
+    parser.add_argument('--use_cot', action='store_true', default=True,
+                        help='Use chain-of-thought prompting')
+    parser.add_argument('--no_cot', action='store_false', dest='use_cot',
+                        help='Disable chain-of-thought prompting')
+    parser.add_argument('--n_shot', type=int, default=0,
+                        help='Number of examples for few-shot prompting')
+    parser.add_argument('--batch_size', type=int, default=1,
+                        help='Batch size to use for inference')
+    
+    args = parser.parse_args()
+
+    #################################
     #            SETTINGS           #
     #################################
     
     # Loading the model
-    MODEL_NAME = 'unsloth/Mistral-Small-Instruct-2409-bnb-4bit'
+    MODEL_NAME = args.model_name
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]        # Used for saving results
-    CHAT_TEMPLATE_NAME = 'unsloth'                      # Chat template to use
-    MAX_SEQ_LENGTH = 2048                               # Max. input length  
-    BATCH_SIZE = 8                                      # Batch size for inference
-    DTYPE = 'auto'                                      # 'None' for auto-detection (on unsloth)
-    LOAD_IN_4_BIT = True                                # Reduces memory usage
+    CHAT_TEMPLATE_NAME = args.chat_template             # Chat template to use
+    MAX_SEQ_LENGTH = args.max_seq_length                # Max. input length  
+    DTYPE = torch.bfloat16                              # 'None' for auto-detection
+    LOAD_IN_4_BIT = args.load_in_4bit                   # Reduces memory usage
 
     # Loading the dataset
-    DATASET_NAME = 'openai/gsm8k'
-    SUBSET_NAME = 'main'
-    SPLIT_NAME = 'test'
-    USE_COT = True
-    N_SHOT = 0
+    RANDOM_STATE = args.random_seed
+    DATASET_NAME = args.dataset
+    SUBSET_NAME = args.subset
+    SPLIT_NAME = args.split
+    USE_COT = args.use_cot
+    N_SHOT = args.n_shot
+    BATCH_SIZE = args.batch_size
 
     #################################
     # DO NOT MODIFY BELOW THIS LINE #
     #################################
 
+    # 0. Print settings
+    torch.manual_seed(RANDOM_STATE)
+    params = {
+        'MODEL_NAME': MODEL_NAME,
+        'MODEL_NAME_SHORT': MODEL_NAME_SHORT,
+        'CHAT_TEMPLATE_NAME': CHAT_TEMPLATE_NAME,
+        'MAX_SEQ_LENGTH': MAX_SEQ_LENGTH,
+        'LOAD_IN_4_BIT': LOAD_IN_4_BIT,
+        'DATASET_NAME': DATASET_NAME,
+        'SUBSET_NAME': SUBSET_NAME,
+        'SPLIT_NAME': SPLIT_NAME,
+        'USE_COT': USE_COT,
+        'N_SHOT': N_SHOT,
+        'BATCH_SIZE': BATCH_SIZE
+    }
+    print_setup(parameters=params)
+
     # 1. Initialise the model and tokeniser
-    login(token=HF_TOKEN)
     loaded_model, loaded_tokeniser = init(
         model_name = MODEL_NAME, 
         max_seq_length = MAX_SEQ_LENGTH, 
@@ -207,21 +263,21 @@ if __name__ == '__main__':
 
     # 2. Load and format the dataset
     raw_dataset, model_prompts = format_dataset(
+        model_name = CHAT_TEMPLATE_NAME, 
         dataset_name = DATASET_NAME, 
         subset_name = SUBSET_NAME, 
-        split_name = SPLIT_NAME, 
+        n_shot = N_SHOT, 
         use_cot = USE_COT,
         tokeniser = loaded_tokeniser
     )
-    check_vram_usage()
 
     # 3. Evaluate the model
     model_results = evaluate_model(
         model = loaded_model,
         tokeniser = loaded_tokeniser,
-        chat_template = CHAT_TEMPLATE_NAME,
         inputs = model_prompts, 
         ground_truths = raw_dataset,
+        # chat_template = 
         batch_size = BATCH_SIZE
     )
 
@@ -234,5 +290,5 @@ if __name__ == '__main__':
         results = model_results
     )
 
-    # 5. Clear VRAM
+    # 6. Clear VRAM
     empty_vram(model = loaded_model, trainer = None)

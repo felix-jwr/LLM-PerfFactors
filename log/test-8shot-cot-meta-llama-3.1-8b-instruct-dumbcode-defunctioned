@@ -1,0 +1,11 @@
+Downloading shards:   0%|          | 0/4 [00:00<?, ?it/s]Downloading shards:  25%|██▌       | 1/4 [04:26<13:20, 266.89s/it]Downloading shards:  50%|█████     | 2/4 [08:58<08:58, 269.43s/it]Downloading shards:  75%|███████▌  | 3/4 [13:25<04:28, 268.58s/it]Downloading shards: 100%|██████████| 4/4 [14:28<00:00, 187.44s/it]Downloading shards: 100%|██████████| 4/4 [14:28<00:00, 217.18s/it]
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:01<00:05,  1.84s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:03<00:03,  1.97s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:06<00:02,  2.03s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:06<00:00,  1.47s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:06<00:00,  1.66s/it]
+Device set to use cuda:0
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 211468.24 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 498538.97 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 66757.01it/s]
+running eval
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 28740.50it/s]
+Finished in: 7607.16s (5.77s per example)
+Correct: 1053 Total: 1319
+Total Accuracy: 0.80

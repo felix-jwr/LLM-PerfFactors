@@ -1,3 +1,4 @@
+import time
 import torch
 import argparse
 from tqdm import tqdm
@@ -33,18 +34,6 @@ def init_unsloth(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit
         token = HF_TOKEN
     )
 
-    # # Add LoRA Adapter
-    # model = FastLanguageModel.get_peft_model(
-    #     model,
-    #     r = 16,
-    #     lora_dropout = 0,
-    #     bias = 'none',
-    #     use_gradient_checkpointing = 'unsloth',
-    #     random_state = RANDOM_STATE,
-    #     use_rslora = False,
-    #     loftq_config = None
-    # )
-
     return model, tokeniser
 
 
@@ -67,42 +56,32 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot:
     """
 
     # Load the dataset from HF
-    login(token=HF_TOKEN)
-    train_test_data = load_dataset(dataset_name, subset_name)
-    dataset = train_test_data['test']
+    all_data = load_dataset(dataset_name, subset_name)
+    test_data = all_data["test"].to_list()
+    train_data = all_data["train"].to_list()
 
     # Format training data so they can be randomly sampled for n-shot prompts
-    n_shot_data = train_test_data['train']
-    n_shot_data = n_shot_data.to_pandas()
-    n_shot_data = n_shot_data.to_dict(orient='records')
+    inputs = []
+    for i in tqdm(range(len(test_data)), desc='Formatting prompts'):
+        # The default gsm8k prompt from the CoT paper
+        # https://arxiv.org/pdf/2201.11903.pdf page 35.
+        prompt = generate_n_shot_prompt(
+            n_shot_data = train_data, 
+            n = n_shot, 
+            question = test_data[i]['question'],
+            seed = RANDOM_STATE, 
+            use_cot = use_cot
+        )
+        inputs.append( prompt ) # May need to add EOS_TOKEN
 
     # Prompt format
     # TODO: Unsure if this is needed
-    tokeniser = get_chat_template(
-        tokenizer = tokeniser,
-        chat_template = model_name
-    )
-
-    # The default gsm8k prompt from the CoT paper
-    # https://arxiv.org/pdf/2201.11903.pdf page 35.
-
-    # Apply formatting
-    inputs = []
-    for i in tqdm(range(len(dataset)), desc='Formatting prompts'):
-        question = dataset[i]['question'] # NOTE: the 'question' field may need to change dep. on dataset
-        
-        prompt = generate_n_shot_prompt(
-            n_shot_data = n_shot_data,
-            n = n_shot,
-            question = question,
-            seed = RANDOM_STATE,
-            use_cot = use_cot
-        )
-
-        prompt = tokeniser.apply_chat_template(prompt, tokenize = False, add_generation_prompt = False)
-        inputs.append( prompt ) # May need to add EOS_TOKEN
+    # tokeniser = get_chat_template(
+    #     tokenizer = tokeniser,
+    #     chat_template = model_name
+    # )
     
-    return dataset, inputs
+    return test_data, inputs
 
 
 def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> tuple:
@@ -137,62 +116,76 @@ def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> t
     return decoded_input, decoded_output
 
 
-def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict) -> list:
+def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, batch_size: int = 1) -> list:
     """
     Evaluate the model's accuracy given a set of decoded outputs and ground truths.
 
     args:
-        model: FastLanguageModel, The (loaded) model.
+        model: AutoModelForCausalLM, The (loaded) model.
         tokeniser: (any), The (loaded) tokeniser.
         inputs: list, The inputs to the model.
         ground_truths: dict, The ground truths for the inputs.
+        chat_template: str, The chat template to use for the model. Default is 'unsloth'.
+        batch_size: int, The batch size to use for inference.
 
     returns:
         results: list, Prompt-response pairs, with the ground truth and correctness. Final element is overall accuracy.
     """
 
+    # Configure model generator for inference
+    # tokeniser = get_chat_template(tokeniser, chat_template = chat_template)
+    tokeniser.pad_token = tokeniser.eos_token
+    tokeniser.padding_side = 'left'    # NOTE: Pipeline wants padding on the left (?)
+    pipe = transformers.pipeline(
+        'text-generation',
+        model = model,
+        tokenizer = tokeniser,
+        max_new_tokens = MAX_SEQ_LENGTH,
+        pad_token_id = tokeniser.eos_token_id,
+        # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
+        # temperature = 1.5,
+        # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
+        # min_p = 0.1,
+        # do_sample = True # NOTE: Needed for Gemma 2
+    )
+
+    start = time.time()
     results = []
-    total_correct = 0
+    total = num_correct = 0
     total_examples = len(inputs)
-    FastLanguageModel.for_inference(model)
+    print(f'Evaluating {total_examples} examples with batch size {batch_size}.')
 
-    for i in tqdm(range(total_examples), desc='Processing Results'):
-        correct = False
+    for output in tqdm(pipe(inputs, batch_size=batch_size), total=total_examples, desc='Evaluating'):
+        correct_flag = False
 
-        # Get the model's response
-        tokenised_inputs = tokeniser(inputs[i], return_tensors = 'pt', padding = True).to('cuda')
-        output = model.generate(
-            **tokenised_inputs, 
-            max_new_tokens = MAX_SEQ_LENGTH, 
-            # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
-            use_cache = True, 
-            # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
-            temperature = 1.5, 
-            min_p = 0.1
-        )
-        decoded_output = tokeniser.batch_decode(output, skip_special_tokens=True)
-        ground_truth = ground_truths[i]['answer']
+        # Get the model response
+        # [0] get dict, ['generated_text'] for output, [-1] for response to prompt, ['content'] for the actual text
+        response = output[0]['generated_text'][-1]['content']
+        ground_truth = ground_truths[total]['answer']
 
         # Extract numerical output
-        extracted_output = extract_answer(decoded_output[0])
+        extracted_output = extract_answer(response)
         extracted_ground_truth = extract_answer(ground_truth, truth=True)
 
         if extracted_output == extracted_ground_truth:
-            correct = True
-            total_correct += 1
+            correct_flag = True
+            num_correct += 1
 
         # Save prompt, reponse, ground truth, and correctness to be saved in .json file
         results.append({
-            'model_prompt': inputs[i], 
-            'model_response': decoded_output,
+            'model_prompt': inputs[total], 
+            'model_response': output,
             'model_prediction': extracted_output,
             'ground_truth_text': ground_truth,
             'ground_truth_answer': extracted_ground_truth,
-            'correct': correct
+            'correct': correct_flag
         })
+        total += 1
 
-    results.append({'accuracy': total_correct / total_examples})
-    print(f'Accuracy: {total_correct} / {total_examples} = {total_correct / total_examples :.4f}')
+    end = time.time()
+    results.append({'accuracy': num_correct / total_examples})
+    print(f'Accuracy: {num_correct} / {total_examples} = {num_correct / total_examples :.4f}')
+    print(f'Finished in: {end - start:.2f}s ({(end - start) / total_examples:.2f}s per example)')
 
     return results
 
@@ -212,8 +205,6 @@ if __name__ == '__main__':
                         help='Chat template to use')
     parser.add_argument('--max_seq_length', type=int, default=2048,
                         help='Maximum sequence length')
-    parser.add_argument('--dtype', type=str, default=None,
-                        help='Data type (None for auto-detection)')
     parser.add_argument('--load_in_4bit', action='store_true', default=True,
                         help='Whether to load model in 4-bit precision')
     parser.add_argument('--no_4bit', action='store_false', dest='load_in_4bit',
@@ -234,6 +225,8 @@ if __name__ == '__main__':
                         help='Disable chain-of-thought prompting')
     parser.add_argument('--n_shot', type=int, default=0,
                         help='Number of examples for few-shot prompting')
+    parser.add_argument('--batch_size', type=int, default=1,
+                        help='Batch size to use for inference')
     
     args = parser.parse_args()
 
@@ -246,7 +239,7 @@ if __name__ == '__main__':
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]        # Used for saving results
     CHAT_TEMPLATE_NAME = args.chat_template             # Chat template to use
     MAX_SEQ_LENGTH = args.max_seq_length                # Max. input length  
-    DTYPE = args.dtype                                  # 'None' for auto-detection
+    DTYPE = torch.bfloat16                              # 'None' for auto-detection
     LOAD_IN_4_BIT = args.load_in_4bit                   # Reduces memory usage
 
     # Loading the dataset
@@ -256,6 +249,7 @@ if __name__ == '__main__':
     SPLIT_NAME = args.split
     USE_COT = args.use_cot
     N_SHOT = args.n_shot
+    BATCH_SIZE = args.batch_size
 
     #################################
     # DO NOT MODIFY BELOW THIS LINE #
@@ -268,13 +262,13 @@ if __name__ == '__main__':
         'MODEL_NAME_SHORT': MODEL_NAME_SHORT,
         'CHAT_TEMPLATE_NAME': CHAT_TEMPLATE_NAME,
         'MAX_SEQ_LENGTH': MAX_SEQ_LENGTH,
-        'DTYPE': DTYPE,
         'LOAD_IN_4_BIT': LOAD_IN_4_BIT,
         'DATASET_NAME': DATASET_NAME,
         'SUBSET_NAME': SUBSET_NAME,
         'SPLIT_NAME': SPLIT_NAME,
         'USE_COT': USE_COT,
-        'N_SHOT': N_SHOT
+        'N_SHOT': N_SHOT,
+        'BATCH_SIZE': BATCH_SIZE
     }
     print_setup(parameters=params)
 
@@ -302,7 +296,9 @@ if __name__ == '__main__':
         model = loaded_model,
         tokeniser = loaded_tokeniser,
         inputs = model_prompts, 
-        ground_truths = raw_dataset
+        ground_truths = raw_dataset,
+        # chat_template = 
+        batch_size = BATCH_SIZE
     )
 
     # 4. Save the results

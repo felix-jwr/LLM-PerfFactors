@@ -149,21 +149,21 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
     """
 
     def question_prompt(string):
-        return f'Q: {string}'
+        return f'{string}'
 
     def answer_prompt(string, use_cot):
         if use_cot:
-            return f'A: {string}'
+            return f'{string}'
         else:
-            return f'A: {extract_answer(string, truth=True)}'   # Only give the answer, not the working, for non-cot
+            return f'The answer is {extract_answer(string, truth=True)}.'   # Only give the answer, not the working, for non-cot
 
     # Get random samples from the training set to use as n-shot examples
     prompts = []
     random.seed(seed)
     # TODO: Removing "Q:, A:" from prompt to investigate effect to performance (if any)
     for question_and_answer in random.sample(n_shot_data, n):
-        prompts.append({'role': 'user', 'content': question_and_answer['question']})
-        prompts.append({'role': 'assistant', 'content': question_and_answer['answer']})
+        prompts.append({'role': 'user', 'content': question_prompt(question_and_answer['question'])})
+        prompts.append({'role': 'assistant', 'content': answer_prompt(question_and_answer['answer'], use_cot=use_cot)})
 
     if use_cot:
         prompts.append({'role': 'user', 'content': question + ' Let\'s think step by step.'})
