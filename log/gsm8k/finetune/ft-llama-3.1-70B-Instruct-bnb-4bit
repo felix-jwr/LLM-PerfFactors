@@ -1,78 +1,0 @@
-Unused kwargs: ['_load_in_4bit', '_load_in_8bit', 'quant_method']. These kwargs are not used in <class 'transformers.utils.quantization_config.BitsAndBytesConfig'>.
-Downloading shards:   0%|          | 0/6 [00:00<?, ?it/s]Downloading shards:  17%|█▋        | 1/6 [02:46<13:51, 166.25s/it]Downloading shards:  33%|███▎      | 2/6 [05:31<11:01, 165.40s/it]Downloading shards:  50%|█████     | 3/6 [08:15<08:15, 165.18s/it]Downloading shards:  67%|██████▋   | 4/6 [11:00<05:30, 165.11s/it]Downloading shards:  83%|████████▎ | 5/6 [13:47<02:45, 165.46s/it]Downloading shards: 100%|██████████| 6/6 [15:40<00:00, 147.66s/it]Downloading shards: 100%|██████████| 6/6 [15:40<00:00, 156.69s/it]
-Loading checkpoint shards:   0%|          | 0/6 [00:00<?, ?it/s]Loading checkpoint shards:  17%|█▋        | 1/6 [00:01<00:06,  1.20s/it]Loading checkpoint shards:  33%|███▎      | 2/6 [00:02<00:04,  1.16s/it]Loading checkpoint shards:  50%|█████     | 3/6 [00:03<00:03,  1.13s/it]Loading checkpoint shards:  67%|██████▋   | 4/6 [00:04<00:02,  1.11s/it]Loading checkpoint shards:  83%|████████▎ | 5/6 [00:05<00:01,  1.09s/it]Loading checkpoint shards: 100%|██████████| 6/6 [00:06<00:00,  1.03it/s]Loading checkpoint shards: 100%|██████████| 6/6 [00:06<00:00,  1.05s/it]
-VRAM Usage: ['9.206GB', '14.448GB', '9.075GB', '13.615GB']
-Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 290246.72 examples/s]
-Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 249877.46 examples/s]
-Map:   0%|          | 0/7473 [00:00<?, ? examples/s]Map: 100%|██████████| 7473/7473 [00:00<00:00, 148296.90 examples/s]
-VRAM Usage: ['9.206GB', '14.448GB', '9.075GB', '13.615GB']
-/opt/conda/lib/python3.11/site-packages/huggingface_hub/utils/_deprecation.py:100: FutureWarning: Deprecated argument(s) used in '__init__': dataset_text_field, max_seq_length, dataset_num_proc. Will not be supported from version '0.13.0'.
-
-Deprecated positional argument(s) used in SFTTrainer, please use the SFTConfig to set these arguments instead.
-  warnings.warn(message, FutureWarning)
-/opt/conda/lib/python3.11/site-packages/trl/trainer/sft_trainer.py:300: UserWarning: You passed a `max_seq_length` argument to the SFTTrainer, the value you passed will override the one in the `SFTConfig`.
-  warnings.warn(
-/opt/conda/lib/python3.11/site-packages/trl/trainer/sft_trainer.py:314: UserWarning: You passed a `dataset_num_proc` argument to the SFTTrainer, the value you passed will override the one in the `SFTConfig`.
-  warnings.warn(
-/opt/conda/lib/python3.11/site-packages/trl/trainer/sft_trainer.py:328: UserWarning: You passed a `dataset_text_field` argument to the SFTTrainer, the value you passed will override the one in the `SFTConfig`.
-  warnings.warn(
-Map (num_proc=2):   0%|          | 0/7473 [00:00<?, ? examples/s]Map (num_proc=2):  13%|█▎        | 1000/7473 [00:00<00:05, 1153.38 examples/s]Map (num_proc=2):  27%|██▋       | 2000/7473 [00:00<00:02, 2344.44 examples/s]Map (num_proc=2):  40%|████      | 3000/7473 [00:01<00:01, 3408.85 examples/s]Map (num_proc=2):  54%|█████▎    | 4000/7473 [00:01<00:00, 4452.17 examples/s]Map (num_proc=2):  67%|██████▋   | 5000/7473 [00:01<00:00, 5296.33 examples/s]Map (num_proc=2):  80%|████████  | 6000/7473 [00:01<00:00, 5946.62 examples/s]Map (num_proc=2): 100%|██████████| 7473/7473 [00:01<00:00, 4675.23 examples/s]Map (num_proc=2): 100%|██████████| 7473/7473 [00:02<00:00, 3714.41 examples/s]
-Starting fine tuning.
-  0%|          | 0/1868 [00:00<?, ?it/s]Traceback (most recent call last):
-  File "/app/src/fine_tune.py", line 197, in <module>
-    fine_tune_model(
-  File "/app/src/fine_tune.py", line 148, in fine_tune_model
-    trainer.train()
-  File "/opt/conda/lib/python3.11/site-packages/transformers/trainer.py", line 2123, in train
-    return inner_training_loop(
-           ^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/transformers/trainer.py", line 2481, in _inner_training_loop
-    tr_loss_step = self.training_step(model, inputs, num_items_in_batch)
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/transformers/trainer.py", line 3579, in training_step
-    loss = self.compute_loss(model, inputs, num_items_in_batch=num_items_in_batch)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/transformers/trainer.py", line 3633, in compute_loss
-    outputs = model(**inputs)
-              ^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
-    return forward_call(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/accelerate/utils/operations.py", line 823, in forward
-    return model_forward(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/accelerate/utils/operations.py", line 811, in __call__
-    return convert_to_fp32(self.model_forward(*args, **kwargs))
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/torch/amp/autocast_mode.py", line 44, in decorate_autocast
-    return func(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/peft/peft_model.py", line 1644, in forward
-    return self.base_model(
-           ^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
-    return forward_call(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/peft/tuners/tuners_utils.py", line 197, in forward
-    return self.model.forward(*args, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/accelerate/hooks.py", line 170, in new_forward
-    output = module._old_forward(*args, **kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/transformers/models/llama/modeling_llama.py", line 1214, in forward
-    loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **loss_kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/transformers/loss/loss_utils.py", line 46, in ForCausalLMLoss
-    loss = fixed_cross_entropy(shift_logits, shift_labels, num_items_in_batch, ignore_index, **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/conda/lib/python3.11/site-packages/transformers/loss/loss_utils.py", line 28, in fixed_cross_entropy
-    loss = loss / num_items_in_batch
-           ~~~~~^~~~~~~~~~~~~~~~~~~~
-RuntimeError: Expected all tensors to be on the same device, but found at least two devices, cuda:3 and cuda:0!
-  0%|          | 0/1868 [00:02<?, ?it/s]

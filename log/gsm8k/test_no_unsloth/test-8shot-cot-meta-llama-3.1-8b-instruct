@@ -1,34 +1,0 @@
-GPU: NVIDIA GeForce RTX 4070 Ti SUPER
-GPU VRAM: 15.99169921875 GB
-CUDA Version: 12.4
-PyTorch Version: 2.6.0+cu124
-Python Version: 2.6.0+cu124
-Random Seed: 100010001000
-Current Time: 2025-03-10 08:36:22
-
-Parameters:
-MODEL_NAME: meta-llama/Llama-3.1-8B-Instruct
-MODEL_NAME_SHORT: Llama-3.1-8B-Instruct
-CHAT_TEMPLATE_NAME: llama-3.1
-MAX_SEQ_LENGTH: 2048
-DTYPE: None
-LOAD_IN_4_BIT: True
-DATASET_NAME: openai/gsm8k
-SUBSET_NAME: main
-SPLIT_NAME: test
-USE_COT: True
-N_SHOT: 8
-BATCH_SIZE: 4
-
-Downloading shards:   0%|          | 0/4 [00:00<?, ?it/s]Downloading shards:  25%|██▌       | 1/4 [04:27<13:21, 267.24s/it]Downloading shards:  50%|█████     | 2/4 [08:53<08:53, 266.61s/it]Downloading shards:  75%|███████▌  | 3/4 [13:20<04:26, 266.62s/it]Downloading shards: 100%|██████████| 4/4 [14:22<00:00, 185.91s/it]Downloading shards: 100%|██████████| 4/4 [14:22<00:00, 215.56s/it]
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:02<00:06,  2.04s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:04<00:04,  2.23s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:06<00:02,  2.15s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:07<00:00,  1.55s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:07<00:00,  1.77s/it]
-VRAM Usage: ['8.477GB']
-Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 181259.01 examples/s]
-Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 487812.98 examples/s]
-Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 26375.75it/s]
-Device set to use cuda:0
-Evaluating 1319 examples with batch size 4.
-Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating:  90%|████████▉ | 1186/1319 [00:00<00:00, 11843.97it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 12045.17it/s]
-Accuracy: 896 / 1319 = 0.6793
-Finished in: 8006.50s (6.07s per example)
-Results saved to ../results/Llama-3.1-8B-Instruct/openai_gsm8k_8-shot_cot_20250310_110425.json

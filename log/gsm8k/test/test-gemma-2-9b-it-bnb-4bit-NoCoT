@@ -1,11 +1,0 @@
-Unused kwargs: ['_load_in_4bit', '_load_in_8bit', 'quant_method']. These kwargs are not used in <class 'transformers.utils.quantization_config.BitsAndBytesConfig'>.
-VRAM Usage: ['6.799GB']
-Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 401270.40 examples/s]
-Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 273280.33 examples/s]
-Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 22174.56it/s]
-VRAM Usage: ['6.799GB']
-Evaluating 1319 examples with batch size 8.
-Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 27919.13it/s]
-Accuracy: 995 / 1319 = 0.7544
-Finished in: 7691.47s (5.83s per example)
-Results saved to ../results/gemma-2-9b-it-bnb-4bit/openai_gsm8k_0-shot_nocot_20250127_125606.json

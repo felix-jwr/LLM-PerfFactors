@@ -1,31 +1,0 @@
-GPU: NVIDIA GeForce RTX 4070 Ti SUPER
-GPU VRAM: 15.99169921875 GB
-CUDA Version: 12.4
-PyTorch Version: 2.6.0+cu124
-Python Version: 2.6.0+cu124
-Random Seed: 42
-Current Time: 2025-03-10 13:25:25
-
-Parameters:
-MODEL_NAME: meta-llama/Llama-3.1-8B-Instruct
-MODEL_NAME_SHORT: Llama-3.1-8B-Instruct
-CHAT_TEMPLATE_NAME: llama-3.1
-MAX_SEQ_LENGTH: 2048
-DTYPE: None
-LOAD_IN_4_BIT: True
-DATASET_NAME: openai/gsm8k
-SUBSET_NAME: main
-SPLIT_NAME: test
-USE_COT: True
-N_SHOT: 0
-BATCH_SIZE: 4
-
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:04<00:14,  4.98s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:13<00:13,  6.89s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:19<00:06,  6.64s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:20<00:00,  4.45s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:20<00:00,  5.16s/it]
-VRAM Usage: ['9.354GB']
-Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 31587.80it/s]
-Device set to use cuda:0
-Evaluating 1319 examples with batch size 4.
-Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating:  81%|████████▏ | 1074/1319 [00:00<00:00, 10715.08it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 11106.02it/s]
-Accuracy: 877 / 1319 = 0.6649
-Finished in: 11877.77s (9.01s per example)
-Results saved to ../results/Llama-3.1-8B-Instruct/openai_gsm8k_0-shot_cot_20250310_164347.json

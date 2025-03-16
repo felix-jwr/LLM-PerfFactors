@@ -1,11 +1,0 @@
-Unused kwargs: ['_load_in_4bit', '_load_in_8bit', 'quant_method']. These kwargs are not used in <class 'transformers.utils.quantization_config.BitsAndBytesConfig'>.
-VRAM Usage: ['4.573GB']
-Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 420742.23 examples/s]
-Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 343045.02 examples/s]
-Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 16021.96it/s]
-VRAM Usage: ['4.573GB']
-Evaluating 1319 examples with batch size 8.
-Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 23532.93it/s]
-Accuracy: 505 / 1319 = 0.3829
-Finished in: 6616.22s (5.02s per example)
-Results saved to ../results/mistral-7b-instruct-v0.3-bnb-4bit/openai_gsm8k_0-shot_nocot_20250127_123820.json
