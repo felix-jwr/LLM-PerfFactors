@@ -1,0 +1,33 @@
+GPU: NVIDIA RTX A5000
+GPU VRAM: 23.58343505859375 GB
+CUDA Version: 12.4
+PyTorch Version: 2.6.0+cu124
+Python Version: 2.6.0+cu124
+Random Seed: 42
+Current Time: 2025-03-16 01:09:42
+
+Parameters:
+MODEL_NAME: meta-llama/Llama-3.2-3B-Instruct
+MODEL_NAME_SHORT: Llama-3.2-3B-Instruct
+CHAT_TEMPLATE_NAME: llama-3.1
+MAX_SEQ_LENGTH: 512
+LOAD_IN_4_BIT: True
+DATASET_NAME: openai/gsm8k
+SUBSET_NAME: main
+SPLIT_NAME: test
+USE_COT: False
+N_SHOT: 0
+BATCH_SIZE: 16
+
+Downloading shards:   0%|          | 0/2 [00:00<?, ?it/s]Downloading shards:  50%|█████     | 1/2 [00:22<00:22, 22.80s/it]Downloading shards: 100%|██████████| 2/2 [00:29<00:00, 13.11s/it]Downloading shards: 100%|██████████| 2/2 [00:29<00:00, 14.56s/it]
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.99s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.34s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:02<00:00,  1.44s/it]
+VRAM Usage: ['2.823GB']
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 425974.20 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 310314.50 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 102343.62it/s]
+Device set to use cuda:0
+Evaluating 1319 examples with batch size 16.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 60631.79it/s]
+Accuracy: 893 / 1319 = 0.6770
+Finished in: 1923.30s (1.46s per example)
+Results saved to ../results/Llama-3.2-3B-Instruct/openai_gsm8k_0-shot_nocot_20250316_014229.json
