@@ -1,0 +1,30 @@
+GPU: NVIDIA GeForce RTX 4070 Ti SUPER
+GPU VRAM: 15.99169921875 GB
+CUDA Version: 12.4
+PyTorch Version: 2.6.0+cu124
+Python Version: 2.6.0+cu124
+Random Seed: 42
+Current Time: 2025-03-18 01:51:50
+
+Parameters:
+MODEL_NAME: microsoft/Phi-4-mini-instruct
+MODEL_NAME_SHORT: Phi-4-mini-instruct
+CHAT_TEMPLATE_NAME: phi
+MAX_SEQ_LENGTH: 512
+LOAD_IN_4_BIT: True
+DATASET_NAME: openai/gsm8k
+SUBSET_NAME: main
+SPLIT_NAME: test
+USE_COT: False
+N_SHOT: 8
+BATCH_SIZE: 8
+
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.08s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.15it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.11it/s]
+VRAM Usage: ['4.804GB']
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 36545.45it/s]
+Device set to use cuda:0
+Evaluating 1319 examples with batch size 8.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 163817.68it/s]
+Accuracy: 240 / 1319 = 0.1820
+Finished in: 1340.44s (1.02s per example)
+Results saved to ../results/Phi-4-mini-instruct/openai_gsm8k_8-shot_nocot_20250318_021417.json
