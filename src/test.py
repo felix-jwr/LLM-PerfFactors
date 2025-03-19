@@ -44,27 +44,32 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
 
     tokeniser = transformers.AutoTokenizer.from_pretrained(
         model_name, 
-        token=HF_TOKEN, 
+        token=HF_TOKEN,
     )
+
+    mistral_chat_template = "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST]' + message['content'] + '[/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}"
+    tokeniser.chat_template = mistral_chat_template
 
     return model, tokeniser
 
 
-def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot: int, use_cot: bool, tokeniser) -> tuple:
+def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_shot: int, use_cot: bool, random_state: int, 
+                   tokeniser) -> tuple:
     """
     Load a dataset from HF, and apply preprocessing (i.e. formatting prompts using the chat template appropriate for 
     the model used).
 
     args:
-        model_name: str, The name of the model being used, to get corresponding Unsloth chat template.
+        template_name: str, The name of the chat template for the model.
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
         split_name: str, The name of the split to load (e.g. 'train', 'test').
         use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
+        random_state: int, Fix the random state (to ensure reproducability).
         tokeniser: (any), The tokeniser to use for formatting the prompts.
 
     returns:
-        dataset: dict, The loaded dataset, as is, without any additional processing.
+        test_data: dict, The loaded dataset, as is, without any additional processing.
         inputs: dict, The loaded dataset with prompts formatted in generic HF multi-turn conversation style.
     """
 
@@ -82,18 +87,19 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot:
             n_shot_data = train_data, 
             n = n_shot, 
             question = test_data[i]['question'],
-            seed = RANDOM_STATE, 
+            seed = random_state, 
             use_cot = use_cot
         )
-        inputs.append( prompt ) # May need to add EOS_TOKEN
+        
+        # Don't need to tokenise here as the pipeline does it
+        # prompt = tokeniser.apply_chat_template(
+        #     prompt,
+        #     return_tensors = 'pt',
+        #     return_dict = True,
+        #     padding = True).to('cuda')
+        
+        inputs.append( prompt )
 
-    # Prompt format
-    # TODO: Unsure if this is needed
-    # tokeniser = get_chat_template(
-    #     tokenizer = tokeniser,
-    #     chat_template = model_name
-    # )
-    
     return test_data, inputs
 
 def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, batch_size: int = 1) -> list:
@@ -122,11 +128,11 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         tokenizer = tokeniser,
         max_new_tokens = MAX_SEQ_LENGTH,
         pad_token_id = tokeniser.eos_token_id,
+        model_kwargs={"torch_dtype": torch.bfloat16},
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
         # temperature = 1.5,
         # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
         # min_p = 0.1,
-        # do_sample = True # NOTE: Needed for Gemma 2
     )
 
     start = time.time()
@@ -136,7 +142,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
     print(f'Evaluating {total_examples} examples with batch size {batch_size}.')
 
     for output in tqdm(pipe(inputs, batch_size=batch_size), total=total_examples, desc='Evaluating'):
-        correct_flag = False
+        is_correct = False
 
         # Get the model response
         # [0] get dict, ['generated_text'] for output, [-1] for response to prompt, ['content'] for the actual text
@@ -148,7 +154,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         extracted_ground_truth = extract_answer(ground_truth, truth=True)
 
         if extracted_output == extracted_ground_truth:
-            correct_flag = True
+            is_correct = True
             num_correct += 1
 
         # Save prompt, reponse, ground truth, and correctness to be saved in .json file
@@ -158,7 +164,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
             'model_prediction': extracted_output,
             'ground_truth_text': ground_truth,
             'ground_truth_answer': extracted_ground_truth,
-            'correct': correct_flag
+            'correct': is_correct
         })
         total += 1
 
@@ -263,11 +269,12 @@ if __name__ == '__main__':
 
     # 2. Load and format the dataset
     raw_dataset, model_prompts = format_dataset(
-        model_name = CHAT_TEMPLATE_NAME, 
+        template_name = CHAT_TEMPLATE_NAME, 
         dataset_name = DATASET_NAME, 
         subset_name = SUBSET_NAME, 
         n_shot = N_SHOT, 
         use_cot = USE_COT,
+        random_state = RANDOM_STATE,
         tokeniser = loaded_tokeniser
     )
 

@@ -31,4 +31,4 @@ have written code to do so), and clean up. This way you can just let it run and 
 - Multiple GPUs: `hare run --rm --gpus '"device=6,7"' --user $(id -u):$(id -g) -d -v $(pwd):/app fr411/masters-thesis`
 
 #### Running Locally on Windows
-`docker run -it --rm --gpus all -v "${PWD}:/workspace/" pytorch/pytorch:2.6.0-cuda12.6-cudnn9-runtime`
+`docker run -it --rm --gpus all -v "${PWD}:/workspace/" fr411/masters-thesis`
