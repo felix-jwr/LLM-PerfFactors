@@ -1,5 +1,6 @@
 import time
 import torch
+import unsloth
 import argparse
 from tqdm import tqdm
 from datasets import load_dataset
@@ -27,7 +28,6 @@ def init_unsloth(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit
 
     model, tokeniser = FastLanguageModel.from_pretrained(
         model_name = model_name,
-        max_seq_length = max_seq_length,
         dtype = dtype,
         load_in_4bit = load_in_4_bit,
         device_map = 'auto',
@@ -72,14 +72,8 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot:
             seed = RANDOM_STATE, 
             use_cot = use_cot
         )
-        inputs.append( prompt ) # May need to add EOS_TOKEN
-
-    # Prompt format
-    # TODO: Unsure if this is needed
-    # tokeniser = get_chat_template(
-    #     tokenizer = tokeniser,
-    #     chat_template = model_name
-    # )
+        
+        inputs.append( prompt )
     
     return test_data, inputs
 
@@ -97,6 +91,11 @@ def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> t
         decoded_input: list, The decoded input from the model.
         decoded_output: list, The decoded output from the model.
     """
+            
+    input = tokeniser.apply_chat_template(
+        input,
+        return_tensors = 'pt',
+    ).to('cuda')
 
     output = model.generate(
         input_ids = input,
@@ -106,8 +105,8 @@ def run_inference(model: FastLanguageModel, tokeniser, input: torch.Tensor) -> t
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
         use_cache = True, 
         # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
-        temperature = 1.5, 
-        min_p = 0.1
+        # temperature = 1.5, 
+        # min_p = 0.1
     )
 
     decoded_input = tokeniser.batch_decode(input, skip_special_tokens=True)
@@ -133,58 +132,42 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
     """
 
     # Configure model generator for inference
-    # tokeniser = get_chat_template(tokeniser, chat_template = chat_template)
-    tokeniser.pad_token = tokeniser.eos_token
-    tokeniser.padding_side = 'left'    # NOTE: Pipeline wants padding on the left (?)
-    pipe = transformers.pipeline(
-        'text-generation',
-        model = model,
-        tokenizer = tokeniser,
-        max_new_tokens = MAX_SEQ_LENGTH,
-        pad_token_id = tokeniser.eos_token_id,
-        # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
-        # temperature = 1.5,
-        # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
-        # min_p = 0.1,
-        # do_sample = True # NOTE: Needed for Gemma 2
-    )
+    FastLanguageModel.for_inference(model)
 
     start = time.time()
     results = []
-    total = num_correct = 0
+    total = correct = 0
     total_examples = len(inputs)
-    print(f'Evaluating {total_examples} examples with batch size {batch_size}.')
+    print(f'Evaluating {total_examples} examples with batch size {batch_size}.') # TODO: batching isnt currently used
 
-    for output in tqdm(pipe(inputs, batch_size=batch_size), total=total_examples, desc='Evaluating'):
-        correct_flag = False
+    for input in tqdm(inputs, desc='Evaluating'):
+        is_correct = False
 
         # Get the model response
-        # [0] get dict, ['generated_text'] for output, [-1] for response to prompt, ['content'] for the actual text
-        response = output[0]['generated_text'][-1]['content']
-        ground_truth = ground_truths[total]['answer']
+        decoded_input, decoded_output = run_inference(model, tokeniser, input=input)
 
         # Extract numerical output
-        extracted_output = extract_answer(response)
-        extracted_ground_truth = extract_answer(ground_truth, truth=True)
+        extracted_output = extract_answer(decoded_output[0])
+        extracted_ground_truth = extract_answer(ground_truths[total]['answer'], truth=True)
 
         if extracted_output == extracted_ground_truth:
-            correct_flag = True
-            num_correct += 1
+            is_correct = True
+            correct += 1
 
         # Save prompt, reponse, ground truth, and correctness to be saved in .json file
         results.append({
-            'model_prompt': inputs[total], 
-            'model_response': output,
+            'model_prompt': decoded_input[0], 
+            'model_response': decoded_output[0],
             'model_prediction': extracted_output,
-            'ground_truth_text': ground_truth,
+            'ground_truth_text': ground_truths[total],
             'ground_truth_answer': extracted_ground_truth,
-            'correct': correct_flag
+            'correct': is_correct
         })
         total += 1
 
     end = time.time()
-    results.append({'accuracy': num_correct / total_examples})
-    print(f'Accuracy: {num_correct} / {total_examples} = {num_correct / total_examples :.4f}')
+    results.append({'accuracy': correct / total_examples})
+    print(f'Accuracy: {correct} / {total_examples} = {correct / total_examples :.4f}')
     print(f'Finished in: {end - start:.2f}s ({(end - start) / total_examples:.2f}s per example)')
 
     return results
