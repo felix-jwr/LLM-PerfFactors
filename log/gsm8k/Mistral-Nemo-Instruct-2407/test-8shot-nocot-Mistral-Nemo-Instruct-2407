@@ -1,0 +1,33 @@
+GPU: NVIDIA RTX A5000
+GPU VRAM: 23.58343505859375 GB
+CUDA Version: 12.4
+PyTorch Version: 2.6.0+cu124
+Python Version: 2.6.0+cu124
+Random Seed: 42
+Current Time: 2025-03-20 07:07:28
+
+Parameters:
+MODEL_NAME: mistralai/Mistral-Nemo-Instruct-2407
+MODEL_NAME_SHORT: Mistral-Nemo-Instruct-2407
+CHAT_TEMPLATE_NAME: mistral
+MAX_SEQ_LENGTH: 512
+LOAD_IN_4_BIT: True
+DATASET_NAME: openai/gsm8k
+SUBSET_NAME: main
+SPLIT_NAME: test
+USE_COT: False
+N_SHOT: 8
+BATCH_SIZE: 16
+
+Downloading shards:   0%|          | 0/5 [00:00<?, ?it/s]Downloading shards:  20%|██        | 1/5 [00:24<01:38, 24.70s/it]Downloading shards:  40%|████      | 2/5 [00:47<01:10, 23.54s/it]Downloading shards:  60%|██████    | 3/5 [01:10<00:46, 23.29s/it]Downloading shards:  80%|████████  | 4/5 [01:34<00:23, 23.80s/it]Downloading shards: 100%|██████████| 5/5 [01:58<00:00, 23.74s/it]Downloading shards: 100%|██████████| 5/5 [01:58<00:00, 23.73s/it]
+Loading checkpoint shards:   0%|          | 0/5 [00:00<?, ?it/s]Loading checkpoint shards:  20%|██        | 1/5 [00:01<00:06,  1.59s/it]Loading checkpoint shards:  40%|████      | 2/5 [00:03<00:05,  1.75s/it]Loading checkpoint shards:  60%|██████    | 3/5 [00:05<00:03,  1.80s/it]Loading checkpoint shards:  80%|████████  | 4/5 [00:07<00:01,  1.81s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:08<00:00,  1.80s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:08<00:00,  1.78s/it]
+VRAM Usage: ['8.747GB']
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 479398.52 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 481193.96 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 57291.40it/s]
+Device set to use cuda:0
+Evaluating 1319 examples with batch size 16.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 213601.81it/s]
+Accuracy: 257 / 1319 = 0.1948
+Finished in: 3195.61s (2.42s per example)
+Results saved to ../results/Mistral-Nemo-Instruct-2407/openai_gsm8k_8-shot_nocot_20250320_080259.json
