@@ -1,0 +1,33 @@
+GPU: NVIDIA RTX A5000
+GPU VRAM: 23.58343505859375 GB
+CUDA Version: 12.4
+PyTorch Version: 2.6.0+cu124
+Python Version: 2.6.0+cu124
+Random Seed: 42
+Current Time: 2025-03-20 12:40:19
+
+Parameters:
+MODEL_NAME: microsoft/phi-4
+MODEL_NAME_SHORT: phi-4
+CHAT_TEMPLATE_NAME: phi
+MAX_SEQ_LENGTH: 512
+LOAD_IN_4_BIT: True
+DATASET_NAME: openai/gsm8k
+SUBSET_NAME: main
+SPLIT_NAME: test
+USE_COT: False
+N_SHOT: 0
+BATCH_SIZE: 16
+
+Downloading shards:   0%|          | 0/6 [00:00<?, ?it/s]Downloading shards:  17%|█▋        | 1/6 [00:23<01:59, 23.83s/it]Downloading shards:  33%|███▎      | 2/6 [00:48<01:36, 24.22s/it]Downloading shards:  50%|█████     | 3/6 [01:10<01:10, 23.51s/it]Downloading shards:  67%|██████▋   | 4/6 [01:34<00:47, 23.63s/it]Downloading shards:  83%|████████▎ | 5/6 [01:57<00:23, 23.42s/it]Downloading shards: 100%|██████████| 6/6 [02:21<00:00, 23.49s/it]Downloading shards: 100%|██████████| 6/6 [02:21<00:00, 23.58s/it]
+Loading checkpoint shards:   0%|          | 0/6 [00:00<?, ?it/s]Loading checkpoint shards:  17%|█▋        | 1/6 [00:01<00:07,  1.59s/it]Loading checkpoint shards:  33%|███▎      | 2/6 [00:03<00:06,  1.65s/it]Loading checkpoint shards:  50%|█████     | 3/6 [00:04<00:04,  1.64s/it]Loading checkpoint shards:  67%|██████▋   | 4/6 [00:06<00:03,  1.62s/it]Loading checkpoint shards:  83%|████████▎ | 5/6 [00:08<00:01,  1.63s/it]Loading checkpoint shards: 100%|██████████| 6/6 [00:09<00:00,  1.62s/it]Loading checkpoint shards: 100%|██████████| 6/6 [00:09<00:00,  1.63s/it]
+VRAM Usage: ['11.198GB']
+Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 604968.71 examples/s]
+Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 498628.84 examples/s]
+Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 196563.76it/s]
+Device set to use cuda:0
+Evaluating 1319 examples with batch size 16.
+Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 31398.30it/s]
+Accuracy: 591 / 1319 = 0.4481
+Finished in: 11926.73s (9.04s per example)
+Results saved to ../results/phi-4/openai_gsm8k_0-shot_nocot_20250320_160147.json
