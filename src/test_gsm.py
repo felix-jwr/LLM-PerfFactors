@@ -1,6 +1,8 @@
 import time
 import torch
+import random
 import argparse
+import numpy as np
 import transformers
 from tqdm import tqdm
 from huggingface_hub import login
@@ -182,14 +184,14 @@ if __name__ == '__main__':
     #################################
 
     # Set up argument parser
-    parser = argparse.ArgumentParser(description='Run single GPU inference test with LLM model')
+    parser = argparse.ArgumentParser(description='Run multi GPU inference test with LLM model')
     
     # Model parameters
     parser.add_argument('--model_name', type=str, default='unsloth/Llama-3.1-8B-Instruct-bnb-4bit',
                         help='Name of the model to load from HF')
     parser.add_argument('--chat_template', type=str, default='unsloth',
                         help='Chat template to use')
-    parser.add_argument('--max_seq_length', type=int, default=2048,
+    parser.add_argument('--max_seq_length', type=int, default=512,
                         help='Maximum sequence length')
     parser.add_argument('--load_in_4bit', action='store_true', default=True,
                         help='Whether to load model in 4-bit precision')
@@ -224,7 +226,7 @@ if __name__ == '__main__':
     MODEL_NAME = args.model_name
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]        # Used for saving results
     CHAT_TEMPLATE_NAME = args.chat_template             # Chat template to use
-    MAX_SEQ_LENGTH = args.max_seq_length                # Max. input length  
+    MAX_SEQ_LENGTH = args.max_seq_length                # Max. new output tokens 
     DTYPE = torch.bfloat16                              # 'None' for auto-detection
     LOAD_IN_4_BIT = args.load_in_4bit                   # Reduces memory usage
 
@@ -242,7 +244,9 @@ if __name__ == '__main__':
     #################################
 
     # 0. Print settings
+    np.random.seed(RANDOM_STATE)
     torch.manual_seed(RANDOM_STATE)
+    random.seed(RANDOM_STATE)
     params = {
         'MODEL_NAME': MODEL_NAME,
         'MODEL_NAME_SHORT': MODEL_NAME_SHORT,
@@ -297,5 +301,5 @@ if __name__ == '__main__':
         results = model_results
     )
 
-    # 6. Clear VRAM
+    # 5. Clear VRAM
     empty_vram(model = loaded_model, trainer = None)

@@ -8,6 +8,7 @@ import pynvml
 import datetime
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Union
 
 
 def check_vram_usage(plot: bool = False) -> list:
@@ -100,7 +101,7 @@ def extract_answer(text: str, eos: str = None, truth: bool = False) -> str:
     return ''
 
 
-def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool, results: list) -> None:
+def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool, results: Union[list, dict]) -> None:
     """
     Save a results .json from a model evaluation.
 
@@ -109,7 +110,7 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
         dataset_name: str, The name of the dataset, 
         n_shot: int, The number of example questions used for the n-shot test.
         use_cot: bool, Whether the 'Let's think step by step.' prompt was used.
-        results: list, The results of model evaluation.
+        results: list or dict, The results of model evaluation.
 
     returns:
         None
@@ -118,14 +119,15 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
     # Clear up any slashes in the model name to avoid making directories
     model_name = model_name.replace('/', '_')
     dataset_name = dataset_name.replace('/', '_')
+    dataset_name_short = dataset_name.split('_')[-1]
 
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    os.makedirs(f'../results/{model_name}', exist_ok=True)
+    os.makedirs(f'../results/{dataset_name_short}/{model_name}', exist_ok=True)
 
     if use_cot:
-        result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
+        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
     else:
-        result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
+        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
 
     with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)
@@ -159,8 +161,6 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
 
     # Get random samples from the training set to use as n-shot examples
     prompts = []
-    random.seed(seed)
-    # TODO: Removing "Q:, A:" from prompt to investigate effect to performance (if any)
     for question_and_answer in random.sample(n_shot_data, n):
         prompts.append({'role': 'user', 'content': question_prompt(question_and_answer['question'])})
         prompts.append({'role': 'assistant', 'content': answer_prompt(question_and_answer['answer'], use_cot=use_cot)})
