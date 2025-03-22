@@ -3,12 +3,16 @@ import random
 import lm_eval
 import argparse
 import numpy as np
+from huggingface_hub import login
 from datasets import load_dataset
 # from lm_eval.api.model import LM
 from lm_eval.utils import setup_logging
-from util import print_setup, check_vram_usage, save_results, extract_answer
+from transformers import BitsAndBytesConfig
+from util import print_setup, check_vram_usage, save_results, extract_answer, convert_prompt_format
+
 
 setup_logging("DEBUG") # optional, but recommended; or you can set up logging yourself
+HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
 # indexes all tasks from the `lm_eval/tasks` subdirectory.
 # Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
@@ -19,7 +23,7 @@ setup_logging("DEBUG") # optional, but recommended; or you can set up logging yo
 # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
 # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
 def evaluate_mmlu(model_name: str, use_cot: bool = False, task_names: list = ['blimp'], single_gpu: bool = True, 
-                  batch_size: int = 1, random_state: int = 42) -> dict:
+                  batch_size: int = 1, random_state: int = 42, load_in_4bit: bool = True) -> dict:
     """
     Function desc.
 
@@ -29,9 +33,21 @@ def evaluate_mmlu(model_name: str, use_cot: bool = False, task_names: list = ['b
     returns:
         returns desc.
     """
+    # TODO: Make it so use_cot influences whether cot is actually used, and not just the file saving information
+
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit = load_in_4bit,                    # Activate 4-bit precision base model loading
+        bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
+        bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
+        bnb_4bit_compute_dtype = torch.bfloat16,        # Compute dtype for 4-bit base models
+    )
 
     # Set up model args based on whether we're using a single GPU
-    model_args = {'pretrained': model_name, 'trust_remote_code': True}
+    model_args = {
+        'pretrained': model_name, 
+        'quantization_config': bnb_config,
+        'trust_remote_code': True,
+    }
     if not single_gpu:
         model_args['parallelize'] = True
     
@@ -96,6 +112,13 @@ def format_model_responses_gsm8k(results: dict, use_cot: bool):
                 is_correct = True
                 correct += 1
 
+            # Convert to turn-based format
+            if idx == 0: 
+                print(f'Model prompt before splitting into q-a pairs: {model_prompt}')
+            model_prompt = convert_prompt_format(model_prompt)
+            if idx == 0:
+                print(f'Model prompt after splitting into q-a pairs: {model_prompt}')
+
             formatted_responses.append({
                 'model_prompt': model_prompt, 
                 'model_response': model_response,
@@ -131,6 +154,8 @@ if __name__ == '__main__':
                         help='Chat template to use')
     parser.add_argument('--max_seq_length', type=int, default=512,
                         help='Maximum sequence length')
+    parser.add_argument('--load_in_4bit', action='store_true', default=True,
+                        help='Whether to load model in 4-bit precision')
     parser.add_argument('--single_gpu', action='store_true', default=True,
                         help='Run evaluation on single GPU')
     parser.add_argument('--multi-gpu',  action='store_false', dest='single_gpu',
@@ -161,6 +186,7 @@ if __name__ == '__main__':
     MODEL_NAME_SHORT = MODEL_NAME.split('/')[-1]        # Used for saving results
     CHAT_TEMPLATE_NAME = args.chat_template             # Chat template to use
     MAX_SEQ_LENGTH = args.max_seq_length                # Max. new output tokens
+    LOAD_IN_4BIT = args.load_in_4bit
     SINGLE_GPU = args.single_gpu 
     RANDOM_STATE = args.random_seed
     TASK_NAMES = args.task_names
@@ -176,11 +202,13 @@ if __name__ == '__main__':
     np.random.seed(RANDOM_STATE)
     torch.manual_seed(RANDOM_STATE)
     random.seed(RANDOM_STATE)
+    login(token=HF_TOKEN)
     params = {
         'MODEL_NAME': MODEL_NAME,
         'MODEL_NAME_SHORT': MODEL_NAME_SHORT,
         'CHAT_TEMPLATE_NAME': CHAT_TEMPLATE_NAME,
         'MAX_SEQ_LENGTH': MAX_SEQ_LENGTH,
+        'LOAD_IN_4BIT': LOAD_IN_4BIT,
         'SINGLE_GPU': SINGLE_GPU,
         'RANDOM_STATE': RANDOM_STATE,
         'TASK_NAMES': TASK_NAMES,
@@ -211,30 +239,23 @@ if __name__ == '__main__':
     # )
 
     # 3. Evaluate the model
-    results, formatted_results = evaluate_mmlu(
+    results = evaluate_mmlu(
         model_name = MODEL_NAME,
         use_cot = USE_COT,
         task_names = TASK_NAMES,
         single_gpu = SINGLE_GPU,
         batch_size = BATCH_SIZE,
-        random_state = RANDOM_STATE
+        random_state = RANDOM_STATE,
+        load_in_4bit = LOAD_IN_4BIT
     )
 
     # 4. Save the results
     save_results(
         model_name = MODEL_NAME_SHORT, 
-        dataset_name = TASK_NAMES[0],
+        dataset_name = 'mmlu-gsm8k-cot',
         n_shot = N_SHOT, 
         use_cot = USE_COT,
         results = results
-    )
-
-    save_results(
-        model_name = MODEL_NAME_SHORT, 
-        dataset_name = TASK_NAMES[0],
-        n_shot = N_SHOT, 
-        use_cot = USE_COT,
-        results = formatted_results
     )
 
     # 5. Clear VRAM

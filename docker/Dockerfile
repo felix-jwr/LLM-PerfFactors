@@ -12,8 +12,10 @@ RUN apt-get install -y build-essential gcc
 RUN apt-get install -y --no-install-recommends git
 ENV CC=gcc
 
-# Install lm-evaluation-harness from GitHub without cloning it to your current directory
-RUN pip install -e git+https://github.com/EleutherAI/lm-evaluation-harness.git#egg=lm-eval
+# Install lm-evaluation-harness from GitHub (needs to pre-exist in /src/)
+WORKDIR /workspace/src/lm-evaluation-harness
+RUN pip install -e ".[dev]"
+WORKDIR /
 
 # Run run.sh
 CMD ["bash", "/workspace/docker/run.sh"]

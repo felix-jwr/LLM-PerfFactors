@@ -199,3 +199,34 @@ def print_setup(parameters: dict = None) -> None:
         for key, value in parameters.items():
             print(f'{key}: {value}')
     print()
+
+def convert_prompt_format(raw_prompt: str) -> list:
+    """
+    Convert a prompt with special tokens into a clean turn-based conversation format.
+    Works with any n-shot prompt format and handles the final question with no answer.
+    
+    Args:
+        raw_prompt: String prompt potentially containing special tokens
+        
+    Returns:
+        List of dictionaries with alternating user/assistant messages
+    """
+
+    clean_prompt = re.sub(r'<\|[^>]+\|>|begin_of_text|start_header_id|end_header_id|eot_id', '', raw_prompt)
+    
+    # Extract conversation turns using Q/A pattern
+    qa_pairs = []
+    pattern = r'(?:Q:|Question:)\s*(.*?)(?:(?:A:|Answer:)\s*(.*?)(?=(?:Q:|Question:)|$)|$)'
+    matches = re.findall(pattern, clean_prompt, re.DOTALL)  # Include questions w/o answers for zero-shot
+    
+    # Convert matches to formatted conversation turns
+    for question, answer in matches:
+        question = question.strip()
+        if question:  # If question exists
+            qa_pairs.append({"role": "user", "content": question})
+            
+        answer = answer.strip()
+        if answer:  # If answer exists
+            qa_pairs.append({"role": "assistant", "content": answer})
+    
+    return qa_pairs
