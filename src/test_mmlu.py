@@ -8,7 +8,7 @@ from datasets import load_dataset
 # from lm_eval.api.model import LM
 from lm_eval.utils import setup_logging
 from transformers import BitsAndBytesConfig
-from util import print_setup, check_vram_usage, save_results, extract_answer, convert_prompt_format
+from util import print_setup, check_vram_usage, save_results, extract_answer, convert_prompt_format, make_json_safe
 
 
 setup_logging("DEBUG") # optional, but recommended; or you can set up logging yourself
@@ -22,8 +22,9 @@ HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 # Setting `task_manager` to the one above is optional and should generally be done
 # if you want to include tasks from paths other than ones in `lm_eval/tasks`.
 # `simple_evaluate` will instantiate its own task_manager if it is set to None here.
-def evaluate_mmlu(model_name: str, use_cot: bool = False, task_names: list = ['blimp'], single_gpu: bool = True, 
-                  batch_size: int = 1, random_state: int = 42, load_in_4bit: bool = True) -> dict:
+def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = False, task_names: list = ['blimp'], 
+                  single_gpu: bool = True, batch_size: int = 1, random_state: int = 42, load_in_4bit: bool = True,
+                  n_shot: int = 0) -> dict:
     """
     Function desc.
 
@@ -62,11 +63,14 @@ def evaluate_mmlu(model_name: str, use_cot: bool = False, task_names: list = ['b
         'random_seed': random_state,
         'numpy_random_seed': random_state,
         'torch_random_seed': random_state,
-        'num_fewshot': 8,
-        'gen_kwargs': {'max_new_tokens': 512},
+        'num_fewshot': n_shot,
         # 'task_manager': task_manager,
     }
-    
+
+    # If max_new_tokens is set
+    if max_new_tokens is not None:
+        eval_params['gen_kwargs'] = {'max_new_tokens': max_new_tokens}
+
     # Only specify device for single GPU setup
     if single_gpu:
         eval_params['device'] = 'cuda:0'
@@ -75,12 +79,11 @@ def evaluate_mmlu(model_name: str, use_cot: bool = False, task_names: list = ['b
     results = lm_eval.simple_evaluate(**eval_params)
 
     # Cast values which are not JSON serialisable to string
-    results['git_hash'] = str(results['git_hash'])
-    results['upper_git_hash'] = str(results['upper_git_hash'])
-    results['config']['model_dtype'] = str(results['config']['model_dtype'])
+    results = make_json_safe(results)
 
     # Extract actual results
-    formatted_results = format_model_responses_gsm8k(results = results, use_cot = use_cot)
+    # formatted_results = format_model_responses_gsm8k(results = results, use_cot = use_cot)
+    formatted_results = results
     
     return formatted_results
 
@@ -152,7 +155,7 @@ if __name__ == '__main__':
                         help='Name of the model to load from HF')
     parser.add_argument('--chat_template', type=str, default='llama',
                         help='Chat template to use')
-    parser.add_argument('--max_seq_length', type=int, default=512,
+    parser.add_argument('--max_seq_length', type=int, default=None,
                         help='Maximum sequence length')
     parser.add_argument('--load_in_4bit', action='store_true', default=True,
                         help='Whether to load model in 4-bit precision')
@@ -241,18 +244,20 @@ if __name__ == '__main__':
     # 3. Evaluate the model
     results = evaluate_mmlu(
         model_name = MODEL_NAME,
+        max_new_tokens = MAX_SEQ_LENGTH,
         use_cot = USE_COT,
         task_names = TASK_NAMES,
         single_gpu = SINGLE_GPU,
         batch_size = BATCH_SIZE,
         random_state = RANDOM_STATE,
-        load_in_4bit = LOAD_IN_4BIT
+        load_in_4bit = LOAD_IN_4BIT,
+        n_shot = N_SHOT
     )
 
     # 4. Save the results
     save_results(
         model_name = MODEL_NAME_SHORT, 
-        dataset_name = 'mmlu-gsm8k-cot',
+        dataset_name = 'mmlu-haerae',
         n_shot = N_SHOT, 
         use_cot = USE_COT,
         results = results
