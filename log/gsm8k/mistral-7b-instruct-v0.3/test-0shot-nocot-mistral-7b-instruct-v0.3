@@ -1,33 +1,0 @@
-GPU: NVIDIA RTX A5000
-GPU VRAM: 23.58343505859375 GB
-CUDA Version: 12.4
-PyTorch Version: 2.6.0+cu124
-Python Version: 2.6.0+cu124
-Random Seed: 42
-Current Time: 2025-03-19 10:34:20
-
-Parameters:
-MODEL_NAME: mistralai/Mistral-7B-Instruct-v0.3
-MODEL_NAME_SHORT: Mistral-7B-Instruct-v0.3
-CHAT_TEMPLATE_NAME: mistral
-MAX_SEQ_LENGTH: 512
-LOAD_IN_4_BIT: True
-DATASET_NAME: openai/gsm8k
-SUBSET_NAME: main
-SPLIT_NAME: test
-USE_COT: False
-N_SHOT: 0
-BATCH_SIZE: 16
-
-Downloading shards:   0%|          | 0/3 [00:00<?, ?it/s]Downloading shards:  33%|███▎      | 1/3 [00:22<00:45, 22.91s/it]Downloading shards:  67%|██████▋   | 2/3 [00:46<00:23, 23.03s/it]Downloading shards: 100%|██████████| 3/3 [01:06<00:00, 22.09s/it]Downloading shards: 100%|██████████| 3/3 [01:06<00:00, 22.33s/it]
-Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards:  33%|███▎      | 1/3 [00:02<00:05,  2.53s/it]Loading checkpoint shards:  67%|██████▋   | 2/3 [00:05<00:02,  2.62s/it]Loading checkpoint shards: 100%|██████████| 3/3 [00:08<00:00,  2.79s/it]Loading checkpoint shards: 100%|██████████| 3/3 [00:08<00:00,  2.73s/it]
-VRAM Usage: ['5.9GB']
-Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 361865.13 examples/s]
-Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 456007.83 examples/s]
-Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 203221.06it/s]
-Device set to use cuda:0
-Evaluating 1319 examples with batch size 16.
-Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 51480.37it/s]
-Accuracy: 600 / 1319 = 0.4549
-Finished in: 7688.43s (5.83s per example)
-Results saved to ../results/Mistral-7B-Instruct-v0.3/openai_gsm8k_0-shot_nocot_20250319_124356.json
