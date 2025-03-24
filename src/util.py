@@ -200,6 +200,7 @@ def print_setup(parameters: dict = None) -> None:
             print(f'{key}: {value}')
     print()
 
+
 def convert_prompt_format(raw_prompt: str) -> list:
     """
     Convert a prompt with special tokens into a clean turn-based conversation format.
@@ -230,3 +231,52 @@ def convert_prompt_format(raw_prompt: str) -> list:
             qa_pairs.append({"role": "assistant", "content": answer})
     
     return qa_pairs
+
+
+def make_json_safe(results: dict) -> dict:
+    """
+    Goes through data in a results dictionary and casts anything non-JSON-serialisable to a str, to prevent potential
+    errors when saving results.
+
+    args:
+        results: dict, The results dict to make JSON.dump() safe.
+
+    returns:
+        safe_results: dict, The same results, but with non-JSON compatible types cast to str.
+    """
+    
+    safe_results = {}
+
+    for key, value in results.items():
+        try:
+            json.dumps(value)
+            safe_results[key] = value
+
+        except (TypeError, OverflowError) as e:
+            print(f'WARN: Results at key {key} were not JSON-serialisable, casting to str. Make sure to check casted results.')
+            
+            # Recursively make nested dictionaries safe
+            if isinstance(value, dict):
+                safe_results[key] = make_json_safe(value) 
+
+            # Handle lists by checking each element
+            elif isinstance(value, (list, tuple)):
+                
+                safe_list = []
+                for item in value:
+                    if isinstance(item, dict):
+                        safe_list.append(make_json_safe(item))
+                    else:
+                        try:
+                            json.dumps(item)
+                            safe_list.append(item)
+                        except (TypeError, OverflowError):
+                            safe_list.append(str(item))
+
+                safe_results[key] = safe_list
+
+            # Convert non-serialisable values to strings
+            else:
+                safe_results[key] = str(value)
+    
+    return safe_results

@@ -1,0 +1,174 @@
+GPU: NVIDIA GeForce RTX 4070 Ti SUPER
+GPU VRAM: 15.99169921875 GB
+CUDA Version: 12.4
+PyTorch Version: 2.6.0+cu124
+Python Version: 2.6.0+cu124
+Random Seed: 42
+Current Time: 2025-03-23 10:21:57
+
+Parameters:
+MODEL_NAME: meta-llama/Llama-3.2-3B-Instruct
+MODEL_NAME_SHORT: Llama-3.2-3B-Instruct
+CHAT_TEMPLATE_NAME: llama
+MAX_SEQ_LENGTH: None
+LOAD_IN_4BIT: True
+SINGLE_GPU: True
+RANDOM_STATE: 42
+TASK_NAMES: ['agieval']
+USE_COT: False
+N_SHOT: 0
+BATCH_SIZE: 64
+
+2025-03-23:10:21:57 INFO     [evaluator:180] Setting random seed to 42 | Setting numpy seed to 42 | Setting torch manual seed to 42 | Setting fewshot manual seed to 1234
+2025-03-23:10:21:57 INFO     [evaluator:205] Initializing hf model, with arguments: {'pretrained': 'meta-llama/Llama-3.2-3B-Instruct', 'quantization_config': BitsAndBytesConfig {
+  "_load_in_4bit": true,
+  "_load_in_8bit": false,
+  "bnb_4bit_compute_dtype": "bfloat16",
+  "bnb_4bit_quant_storage": "uint8",
+  "bnb_4bit_quant_type": "nf4",
+  "bnb_4bit_use_double_quant": true,
+  "llm_int8_enable_fp32_cpu_offload": false,
+  "llm_int8_has_fp16_weight": false,
+  "llm_int8_skip_modules": null,
+  "llm_int8_threshold": 6.0,
+  "load_in_4bit": true,
+  "load_in_8bit": false,
+  "quant_method": "bitsandbytes"
+}
+, 'trust_remote_code': True}
+2025-03-23:10:21:57 INFO     [models.huggingface:136] Using device 'cuda:0'
+2025-03-23:10:21:57 DEBUG    [models.huggingface:493] Using model type 'causal'
+2025-03-23:10:22:04 INFO     [models.huggingface:377] Model parallel was set to False, max memory was not set, and device map was set to {'': 'cuda:0'}
+2025-03-23:10:22:04 DEBUG    [bitsandbytes.cextension:71] Loading bitsandbytes native library from: /opt/conda/lib/python3.11/site-packages/bitsandbytes/libbitsandbytes_cuda124.so
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:01<00:01,  1.13s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.68it/s]Loading checkpoint shards: 100%|██████████| 2/2 [00:01<00:00,  1.48it/s]
+2025-03-23:10:27:56 DEBUG    [tasks:539] File _evalita-mp_ner_adg.yaml in /workspace/src/lm-evaluation-harness/lm_eval/tasks/evalita_llm could not be loaded
+2025-03-23:10:27:56 DEBUG    [tasks:539] File _evalita-mp_ner_fic.yaml in /workspace/src/lm-evaluation-harness/lm_eval/tasks/evalita_llm could not be loaded
+2025-03-23:10:27:56 DEBUG    [tasks:539] File _evalita-mp_ner_wn.yaml in /workspace/src/lm-evaluation-harness/lm_eval/tasks/evalita_llm could not be loaded
+Generating test split:   0%|          | 0/220 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 220/220 [00:00<00:00, 11790.94 examples/s]
+2025-03-23:10:28:37 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/206 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 206/206 [00:00<00:00, 34768.28 examples/s]
+2025-03-23:10:28:39 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/206 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 206/206 [00:00<00:00, 112856.14 examples/s]
+2025-03-23:10:28:41 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/1000 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1000/1000 [00:00<00:00, 493099.46 examples/s]
+2025-03-23:10:28:43 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/269 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 269/269 [00:00<00:00, 64391.50 examples/s]
+2025-03-23:10:28:45 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/510 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 510/510 [00:00<00:00, 167365.23 examples/s]
+2025-03-23:10:28:48 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/230 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 230/230 [00:00<00:00, 79647.45 examples/s]
+2025-03-23:10:28:50 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/651 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 651/651 [00:00<00:00, 169322.33 examples/s]
+2025-03-23:10:28:52 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/306 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 306/306 [00:00<00:00, 122373.86 examples/s]
+2025-03-23:10:28:55 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/254 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 254/254 [00:00<00:00, 137305.48 examples/s]
+2025-03-23:10:28:57 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/651 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 651/651 [00:00<00:00, 243772.15 examples/s]
+2025-03-23:10:29:00 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/1000 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1000/1000 [00:00<00:00, 347872.94 examples/s]
+2025-03-23:10:29:01 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/999 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 999/999 [00:00<00:00, 285527.07 examples/s]
+2025-03-23:10:29:03 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/200 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 200/200 [00:00<00:00, 109511.85 examples/s]
+2025-03-23:10:29:07 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/351 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 351/351 [00:00<00:00, 180948.96 examples/s]
+2025-03-23:10:29:09 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/118 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 118/118 [00:00<00:00, 73836.77 examples/s]
+2025-03-23:10:29:11 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/235 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 235/235 [00:00<00:00, 122305.68 examples/s]
+2025-03-23:10:29:14 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/199 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 199/199 [00:00<00:00, 99507.21 examples/s]
+2025-03-23:10:29:16 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/246 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 246/246 [00:00<00:00, 59408.04 examples/s]
+2025-03-23:10:29:18 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/207 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 207/207 [00:00<00:00, 104328.40 examples/s]
+2025-03-23:10:29:20 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+Generating test split:   0%|          | 0/210 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 210/210 [00:00<00:00, 114212.12 examples/s]
+2025-03-23:10:29:22 DEBUG    [api.task:852] No custom filters defined. Using default 'take_first' filter for handling repeats.
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_biology from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_chemistry from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_chinese from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_geography from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_history from None to 8
+2025-03-23:10:29:22 INFO     [evaluator:281] agieval_gaokao_mathcloze: Using gen_kwargs: {'max_gen_toks': 32, 'do_sample': False, 'temperature': 0.0, 'until': ['Q:']}
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_mathcloze from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_mathqa from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_physics from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_jec_qa_ca from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_jec_qa_kd from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_logiqa_zh from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_aqua_rat from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_gaokao_english from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_logiqa_en from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_lsat_ar from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_lsat_lr from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_lsat_rc from None to 8
+2025-03-23:10:29:22 INFO     [evaluator:281] agieval_math: Using gen_kwargs: {'max_gen_toks': 32, 'do_sample': False, 'temperature': 0.0, 'until': ['Q:']}
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_math from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_sat_en_without_passage from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_sat_en from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:300] Overwriting default num_fewshot of agieval_sat_math from None to 8
+2025-03-23:10:29:22 WARNING  [evaluator:446] Chat template formatting change affects loglikelihood and multiple-choice tasks. See docs/chat-template-readme.md for details.
+2025-03-23:10:29:22 INFO     [api.task:426] Building contexts for agieval_gaokao_biology on rank 0...
+  0%|          | 0/210 [00:00<?, ?it/s] 11%|█         | 23/210 [00:00<00:00, 225.66it/s] 23%|██▎       | 49/210 [00:00<00:00, 243.75it/s] 36%|███▌      | 75/210 [00:00<00:00, 248.83it/s] 49%|████▊     | 102/210 [00:00<00:00, 255.51it/s] 61%|██████    | 128/210 [00:00<00:00, 255.94it/s] 73%|███████▎  | 154/210 [00:00<00:00, 249.06it/s] 86%|████████▌ | 180/210 [00:00<00:00, 251.67it/s] 98%|█████████▊| 206/210 [00:00<00:00, 253.67it/s]100%|██████████| 210/210 [00:00<00:00, 251.15it/s]
+2025-03-23:10:29:23 DEBUG    [evaluator:513] Task: agieval_gaokao_biology; number of requests on this rank: 840
+2025-03-23:10:29:23 INFO     [api.task:426] Building contexts for agieval_gaokao_chemistry on rank 0...
+  0%|          | 0/207 [00:00<?, ?it/s] 13%|█▎        | 26/207 [00:00<00:00, 252.05it/s] 25%|██▌       | 52/207 [00:00<00:00, 256.36it/s] 38%|███▊      | 78/207 [00:00<00:00, 255.51it/s] 50%|█████     | 104/207 [00:00<00:00, 255.91it/s] 63%|██████▎   | 130/207 [00:00<00:00, 251.72it/s] 75%|███████▌  | 156/207 [00:00<00:00, 252.12it/s] 88%|████████▊ | 182/207 [00:00<00:00, 252.71it/s]100%|██████████| 207/207 [00:00<00:00, 253.90it/s]
+2025-03-23:10:29:24 DEBUG    [evaluator:513] Task: agieval_gaokao_chemistry; number of requests on this rank: 828
+2025-03-23:10:29:24 INFO     [api.task:426] Building contexts for agieval_gaokao_chinese on rank 0...
+  0%|          | 0/246 [00:00<?, ?it/s] 11%|█         | 26/246 [00:00<00:00, 251.79it/s] 21%|██        | 52/246 [00:00<00:00, 253.78it/s] 32%|███▏      | 78/246 [00:00<00:00, 254.26it/s] 42%|████▏     | 104/246 [00:00<00:00, 255.17it/s] 53%|█████▎    | 130/246 [00:00<00:00, 251.69it/s] 63%|██████▎   | 156/246 [00:00<00:00, 249.53it/s] 74%|███████▍  | 182/246 [00:00<00:00, 250.52it/s] 85%|████████▍ | 208/246 [00:00<00:00, 248.95it/s] 95%|█████████▌| 234/246 [00:00<00:00, 250.47it/s]100%|██████████| 246/246 [00:00<00:00, 251.21it/s]
+2025-03-23:10:29:24 DEBUG    [evaluator:513] Task: agieval_gaokao_chinese; number of requests on this rank: 984
+2025-03-23:10:29:24 INFO     [api.task:426] Building contexts for agieval_gaokao_geography on rank 0...
+  0%|          | 0/199 [00:00<?, ?it/s] 13%|█▎        | 26/199 [00:00<00:00, 255.70it/s] 26%|██▌       | 52/199 [00:00<00:00, 257.78it/s] 39%|███▉      | 78/199 [00:00<00:00, 257.94it/s] 52%|█████▏    | 104/199 [00:00<00:00, 258.16it/s] 65%|██████▌   | 130/199 [00:00<00:00, 258.78it/s] 79%|███████▉  | 157/199 [00:00<00:00, 260.75it/s] 92%|█████████▏| 184/199 [00:00<00:00, 256.14it/s]100%|██████████| 199/199 [00:00<00:00, 257.67it/s]
+2025-03-23:10:29:25 DEBUG    [evaluator:513] Task: agieval_gaokao_geography; number of requests on this rank: 796
+2025-03-23:10:29:25 INFO     [api.task:426] Building contexts for agieval_gaokao_history on rank 0...
+  0%|          | 0/235 [00:00<?, ?it/s] 11%|█         | 26/235 [00:00<00:00, 255.25it/s] 22%|██▏       | 52/235 [00:00<00:00, 256.03it/s] 34%|███▎      | 79/235 [00:00<00:00, 258.47it/s] 45%|████▌     | 106/235 [00:00<00:00, 259.43it/s] 56%|█████▌    | 132/235 [00:00<00:00, 256.98it/s] 67%|██████▋   | 158/235 [00:00<00:00, 257.02it/s] 78%|███████▊  | 184/235 [00:00<00:00, 257.40it/s] 89%|████████▉ | 210/235 [00:00<00:00, 248.39it/s]100%|██████████| 235/235 [00:00<00:00, 247.62it/s]100%|██████████| 235/235 [00:00<00:00, 252.93it/s]
+2025-03-23:10:29:26 DEBUG    [evaluator:513] Task: agieval_gaokao_history; number of requests on this rank: 940
+2025-03-23:10:29:26 INFO     [api.task:426] Building contexts for agieval_gaokao_mathcloze on rank 0...
+  0%|          | 0/118 [00:00<?, ?it/s] 23%|██▎       | 27/118 [00:00<00:00, 268.95it/s] 48%|████▊     | 57/118 [00:00<00:00, 282.53it/s] 73%|███████▎  | 86/118 [00:00<00:00, 284.99it/s] 97%|█████████▋| 115/118 [00:00<00:00, 285.22it/s]100%|██████████| 118/118 [00:00<00:00, 283.34it/s]
+2025-03-23:10:29:27 DEBUG    [evaluator:513] Task: agieval_gaokao_mathcloze; number of requests on this rank: 118
+2025-03-23:10:29:27 INFO     [api.task:426] Building contexts for agieval_gaokao_mathqa on rank 0...
+  0%|          | 0/351 [00:00<?, ?it/s]  8%|▊         | 27/351 [00:00<00:01, 260.49it/s] 15%|█▌        | 54/351 [00:00<00:01, 256.97it/s] 23%|██▎       | 80/351 [00:00<00:01, 257.46it/s] 30%|███       | 106/351 [00:00<00:00, 256.85it/s] 38%|███▊      | 132/351 [00:00<00:00, 256.34it/s] 45%|████▌     | 158/351 [00:00<00:00, 253.22it/s] 52%|█████▏    | 184/351 [00:00<00:00, 254.65it/s] 60%|██████    | 211/351 [00:00<00:00, 256.57it/s] 68%|██████▊   | 237/351 [00:00<00:00, 254.57it/s] 75%|███████▍  | 263/351 [00:01<00:00, 249.89it/s] 82%|████████▏ | 289/351 [00:01<00:00, 250.46it/s] 90%|████████▉ | 315/351 [00:01<00:00, 250.34it/s] 97%|█████████▋| 341/351 [00:01<00:00, 251.51it/s]100%|██████████| 351/351 [00:01<00:00, 253.39it/s]
+2025-03-23:10:29:28 DEBUG    [evaluator:513] Task: agieval_gaokao_mathqa; number of requests on this rank: 1404
+2025-03-23:10:29:28 INFO     [api.task:426] Building contexts for agieval_gaokao_physics on rank 0...
+  0%|          | 0/200 [00:00<?, ?it/s] 12%|█▎        | 25/200 [00:00<00:00, 247.16it/s] 26%|██▌       | 51/200 [00:00<00:00, 253.14it/s] 39%|███▉      | 78/200 [00:00<00:00, 256.92it/s] 52%|█████▏    | 104/200 [00:00<00:00, 255.37it/s] 66%|██████▌   | 131/200 [00:00<00:00, 258.58it/s] 78%|███████▊  | 157/200 [00:00<00:00, 258.55it/s] 92%|█████████▏| 183/200 [00:00<00:00, 256.93it/s]100%|██████████| 200/200 [00:00<00:00, 256.04it/s]
+2025-03-23:10:29:29 DEBUG    [evaluator:513] Task: agieval_gaokao_physics; number of requests on this rank: 800
+2025-03-23:10:29:29 INFO     [api.task:426] Building contexts for agieval_jec_qa_ca on rank 0...
+  0%|          | 0/999 [00:00<?, ?it/s]  3%|▎         | 26/999 [00:00<00:03, 253.22it/s]  5%|▌         | 52/999 [00:00<00:03, 251.29it/s]  8%|▊         | 78/999 [00:00<00:06, 143.13it/s] 10%|█         | 103/999 [00:00<00:05, 170.54it/s] 13%|█▎        | 129/999 [00:00<00:04, 193.22it/s] 15%|█▌        | 153/999 [00:00<00:04, 204.49it/s] 18%|█▊        | 178/999 [00:00<00:03, 216.21it/s] 20%|██        | 203/999 [00:00<00:03, 225.02it/s] 23%|██▎       | 228/999 [00:01<00:03, 229.82it/s] 25%|██▌       | 253/999 [00:01<00:03, 235.32it/s] 28%|██▊       | 278/999 [00:01<00:03, 237.18it/s] 30%|███       | 303/999 [00:01<00:02, 239.31it/s] 33%|███▎      | 329/999 [00:01<00:02, 243.91it/s] 36%|███▌      | 355/999 [00:01<00:02, 246.73it/s] 38%|███▊      | 380/999 [00:01<00:02, 247.12it/s] 41%|████      | 405/999 [00:01<00:02, 247.30it/s] 43%|████▎     | 431/999 [00:01<00:02, 250.52it/s] 46%|████▌     | 457/999 [00:02<00:02, 249.50it/s] 48%|████▊     | 482/999 [00:02<00:02, 248.90it/s] 51%|█████     | 508/999 [00:02<00:01, 250.09it/s] 53%|█████▎    | 534/999 [00:02<00:01, 252.55it/s] 56%|█████▌    | 560/999 [00:02<00:01, 253.32it/s] 59%|█████▊    | 586/999 [00:02<00:01, 253.90it/s] 61%|██████▏   | 612/999 [00:02<00:01, 255.69it/s] 64%|██████▍   | 638/999 [00:02<00:01, 255.43it/s] 66%|██████▋   | 664/999 [00:02<00:01, 252.64it/s] 69%|██████▉   | 690/999 [00:02<00:01, 253.12it/s] 72%|███████▏  | 716/999 [00:03<00:01, 252.43it/s] 74%|███████▍  | 742/999 [00:03<00:01, 250.32it/s] 77%|███████▋  | 768/999 [00:03<00:00, 251.86it/s] 79%|███████▉  | 794/999 [00:03<00:00, 252.74it/s] 82%|████████▏ | 820/999 [00:03<00:00, 253.36it/s] 85%|████████▍ | 846/999 [00:03<00:00, 253.53it/s] 87%|████████▋ | 872/999 [00:03<00:00, 253.79it/s] 90%|████████▉ | 898/999 [00:03<00:00, 252.61it/s] 92%|█████████▏| 924/999 [00:03<00:00, 254.70it/s] 95%|█████████▌| 950/999 [00:03<00:00, 255.07it/s] 98%|█████████▊| 976/999 [00:04<00:00, 255.23it/s]100%|██████████| 999/999 [00:04<00:00, 240.68it/s]
+2025-03-23:10:29:33 DEBUG    [evaluator:513] Task: agieval_jec_qa_ca; number of requests on this rank: 3996
+2025-03-23:10:29:33 INFO     [api.task:426] Building contexts for agieval_jec_qa_kd on rank 0...
+  0%|          | 0/1000 [00:00<?, ?it/s]  3%|▎         | 26/1000 [00:00<00:03, 253.10it/s]  5%|▌         | 50/1000 [00:00<00:03, 243.39it/s]
+Traceback (most recent call last):
+  File "/workspace/src/test_mmlu.py", line 246, in <module>
+    results = evaluate_mmlu(
+              ^^^^^^^^^^^^^^
+  File "/workspace/src/test_mmlu.py", line 78, in evaluate_mmlu
+    results = lm_eval.simple_evaluate(**eval_params)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/src/lm-evaluation-harness/lm_eval/utils.py", line 439, in _wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/src/lm-evaluation-harness/lm_eval/evaluator.py", line 333, in simple_evaluate
+    results = evaluate(
+              ^^^^^^^^^
+  File "/workspace/src/lm-evaluation-harness/lm_eval/utils.py", line 439, in _wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/src/lm-evaluation-harness/lm_eval/evaluator.py", line 497, in evaluate
+    task.build_all_requests(
+  File "/workspace/src/lm-evaluation-harness/lm_eval/api/task.py", line 449, in build_all_requests
+    fewshot_ctx = self.fewshot_context(
+                  ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/src/lm-evaluation-harness/lm_eval/utils.py", line 439, in _wrapper
+    return fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/src/lm-evaluation-harness/lm_eval/api/task.py", line 1113, in fewshot_context
+    self.sampler.get_chat_context(
+  File "/workspace/src/lm-evaluation-harness/lm_eval/api/samplers.py", line 176, in get_chat_context
+    "content": self.get_context(
+               ^^^^^^^^^^^^^^^^^
+  File "/workspace/src/lm-evaluation-harness/lm_eval/api/samplers.py", line 114, in get_context
+    str(doc_target[0])
+        ~~~~~~~~~~^^^
+IndexError: list index out of range
