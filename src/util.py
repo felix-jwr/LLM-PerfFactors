@@ -159,18 +159,21 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
         else:
             return f'The answer is {extract_answer(string, truth=True)}.'   # Only give the answer, not the working, for non-cot
 
+    # TODO: on Deepseek tests, ensure model initiates its response with "<think>\n at beginning of every output"
     # Get random samples from the training set to use as n-shot examples
-    prompts = []
+    prompt = ''
     for question_and_answer in random.sample(n_shot_data, n):
-        prompts.append({'role': 'user', 'content': question_prompt(question_and_answer['question'])})
-        prompts.append({'role': 'assistant', 'content': answer_prompt(question_and_answer['answer'], use_cot=use_cot)})
+        prompt += f'Question: {question_prompt(question_and_answer["question"])}'
+        prompt += f'\nAnswer: {answer_prompt(question_and_answer["answer"], use_cot=use_cot)}\n\n'
 
     if use_cot:
-        prompts.append({'role': 'user', 'content': question + ' Let\'s think step by step.'})
+        prompt += f'Question: {question}'
+        prompt += f'\nAnswer: Let\'s think step by step.'
     else:
-        prompts.append({'role': 'user', 'content': question})
+        prompt += f'Question: {question}'
+        prompt += f'\nAnswer: '
 
-    return prompts
+    return prompt
 
 
 def print_setup(parameters: dict = None) -> None:

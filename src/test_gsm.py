@@ -102,6 +102,8 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
         
         inputs.append( prompt )
 
+    print(inputs[0])
+
     return test_data, inputs
 
 def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, batch_size: int = 1) -> list:
@@ -130,10 +132,16 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         tokenizer = tokeniser,
         max_new_tokens = MAX_SEQ_LENGTH,
         pad_token_id = tokeniser.eos_token_id,
-        model_kwargs={"torch_dtype": torch.bfloat16},
+        # model_kwargs = {"torch_dtype": torch.bfloat16},
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
+        use_cache = True,
+        
+        # Deepseek Recommends Temp = 0.6
+        # temperature = 0.6,
+        # TODO: on Deepseek tests, ensure model initiates its response with "<think>\n at beginning of every output"
+
+        # Recommends Temp 1.5, Min_P 0.1: https://x.com/menhguin/status/1826132708508213629
         # temperature = 1.5,
-        # Use Temperature = 1.5, Min P = 0.1 because of this Tweet: https://x.com/menhguin/status/1826132708508213629
         # min_p = 0.1,
     )
 
@@ -143,7 +151,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
     total_examples = len(inputs)
     print(f'Evaluating {total_examples} examples with batch size {batch_size}.')
 
-    for output in tqdm(pipe(inputs, batch_size=batch_size), total=total_examples, desc='Evaluating'):
+    for output in tqdm(pipe(inputs, batch_size = batch_size), total = total_examples, desc='Evaluating'):
         is_correct = False
 
         # Get the model response
