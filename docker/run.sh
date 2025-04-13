@@ -3,41 +3,17 @@
 cd /workspace/src/
 
 # NOTE: Change --no_cot to --use_cot to enable COT, similarly for --load_in_4bit
-python3 -u test_mmlu.py \
-  --model_name "meta-llama/Llama-3.2-3B-Instruct" \
-  --max_seq_length 512 \
-  --load_in_4bit \
-  --single_gpu \
-  --random_seed 42 \
-  --task_names haerae \
-  --no_cot \
-  --n_shot 8 \
-  --batch_size 8 \
-  2>&1 | tee ../log/rerun-for-compute-time/haerae-test-8shot-nocot-Llama-3.2-3B-Instruct
-
-python3 -u test_mmlu.py \
-  --model_name "mistralai/Mistral-Nemo-Instruct-2407" \
-  --max_seq_length 512 \
-  --load_in_4bit \
-  --single_gpu \
-  --random_seed 42 \
-  --task_names haerae \
-  --no_cot \
-  --n_shot 0 \
-  --batch_size 1 \
-  2>&1 | tee ../log/rerun-for-compute-time/haerae-test-0shot-nocot-Mistral-Nemo-Instruct-2407
-
-python3 -u test_mmlu.py \
-  --model_name "google/gemma-2-9b-it" \
-  --max_seq_length 512 \
-  --load_in_4bit \
-  --single_gpu \
-  --random_seed 42 \
-  --task_names gsm8k \
-  --no_cot \
-  --n_shot 8 \
-  --batch_size 4 \
-  2>&1 | tee ../log/rerun-for-compute-time/gsm8k-test-8shot-nocot-gemma-2-9b-it
+# python3 -u test_mmlu.py \
+#   --model_name "google/gemma-2-27b-it" \
+#   --max_seq_length 512 \
+#   --load_in_4bit \
+#   --single_gpu \
+#   --random_seed 42 \
+#   --task_names haerae \
+#   --no_cot \
+#   --n_shot 8 \
+#   --batch_size 2 \
+#   2>&1 | tee ../log/rerun-for-compute-time/haerae-test-8shot-nocot-gemma-2-27b-it
 
 python3 -u test_gsm.py \
   --model_name "mistralai/Mistral-7B-Instruct-v0.3" \
@@ -50,30 +26,5 @@ python3 -u test_gsm.py \
   --split test \
   --use_cot \
   --n_shot 0 \
-  --batch_size 4 \
-  2>&1 | tee ../log/rerun-for-compute-time/gsm8k-test-0shot-cot-Mistral-7B-Instruct-v0.3
-
-python3 -u test_mmlu.py \
-  --model_name "google/gemma-2-27b-it" \
-  --max_seq_length 512 \
-  --load_in_4bit \
-  --single_gpu \
-  --random_seed 42 \
-  --task_names gsm8k \
-  --no_cot \
-  --n_shot 8 \
   --batch_size 1 \
-  2>&1 | tee ../log/rerun-for-compute-time/gsm8k-test-8shot-nocot-gemma-2-27b-it
-
-# python3 -u test_mmlu.py \
-#   --model_name "mistralai/Mistral-Small-Instruct-2409" \
-#   --max_seq_length 512 \
-#   --load_in_4bit \
-#   --single_gpu \
-#   --random_seed 42 \
-#   --task_names haerae \
-#   --use_cot \
-#   --n_shot 8 \
-#   --batch_size 1 \
-#   2>&1 | tee ../log/rerun-for-compute-time/haerae-test-8shot-cot-Mistral-Small-Instruct-2409
-  
+  2>&1 | tee ../log/rerun-for-compute-time/gsm8k-test-0shot-cot-Mistral-7B-Instruct-v0.3

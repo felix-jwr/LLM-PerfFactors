@@ -80,6 +80,10 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
     test_data = all_data["test"].to_list()
     train_data = all_data["train"].to_list()
 
+    # Check if the model is one which requires special handling of the input prompt
+    is_deepseek = ('deepseek' in MODEL_NAME_SHORT.lower())
+    is_mistral = ('mistral' in MODEL_NAME_SHORT.lower())
+
     # Format training data so they can be randomly sampled for n-shot prompts
     inputs = []
     for i in tqdm(range(len(test_data)), desc='Formatting prompts'):
@@ -89,8 +93,9 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
             n_shot_data = train_data, 
             n = n_shot, 
             question = test_data[i]['question'],
-            seed = random_state, 
-            use_cot = use_cot
+            use_cot = use_cot,
+            is_deepseek = is_deepseek,
+            is_mistral = is_mistral
         )
         
         # Don't need to tokenise here as the pipeline does it
@@ -145,6 +150,9 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         # min_p = 0.1,
     )
 
+    # TODO: 
+    inputs = inputs[:1]
+
     start = time.time()
     results = []
     total = num_correct = 0
@@ -156,11 +164,13 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
 
         # Get the model response
         # [0] get dict, ['generated_text'] for output, [-1] for response to prompt, ['content'] for the actual text
-        response = output[0]['generated_text'][-1]['content']
+        response = output[0]['generated_text']
+        print(response)
         ground_truth = ground_truths[total]['answer']
 
         # Extract numerical output
         extracted_output = extract_answer(response)
+        print(extracted_output)
         extracted_ground_truth = extract_answer(ground_truth, truth=True)
 
         if extracted_output == extracted_ground_truth:

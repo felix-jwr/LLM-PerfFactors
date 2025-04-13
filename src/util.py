@@ -135,7 +135,8 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
     print(f'Results saved to {result_file}')
 
 
-def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, use_cot: bool) -> str:
+def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, use_cot: bool, is_deepseek: bool = False,
+                           is_mistral: bool = False) -> str:
     """
     Generate a prompt for the model with n example questions for an n-shot prompt.
 
@@ -145,7 +146,9 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
         question: str, The actual prompt from the test set.
         seed: int, The random seed to use for reproducibility.
         use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
-
+        is_deepseek: bool, Whether the current model is DeepSeek (thus whether to use <think>\n at beginning of output)
+        is_mistral: bool, Whether the current model is Mistral (Mistral doesn't accept system prompts)
+        
     returns:
         string: str, The n-shot prompt for the model.
     """
@@ -158,20 +161,52 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
             return f'{string}'
         else:
             return f'The answer is {extract_answer(string, truth=True)}.'   # Only give the answer, not the working, for non-cot
+        
+    def generate_n_examples(n_shot_data, n, use_cot):
+        n_shot_text = ''
 
-    # TODO: on Deepseek tests, ensure model initiates its response with "<think>\n at beginning of every output"
-    # Get random samples from the training set to use as n-shot examples
-    prompt = ''
-    for question_and_answer in random.sample(n_shot_data, n):
-        prompt += f'Question: {question_prompt(question_and_answer["question"])}'
-        prompt += f'\nAnswer: {answer_prompt(question_and_answer["answer"], use_cot=use_cot)}\n\n'
+        # Get random samples from the training set to use as n-shot examples
+        for question_and_answer in random.sample(n_shot_data, n):
+            n_shot_text += f'Question: {question_prompt(question_and_answer["question"])}'
+            n_shot_text += f'\nAnswer: {answer_prompt(question_and_answer["answer"], use_cot = use_cot)}\n\n'
 
-    if use_cot:
-        prompt += f'Question: {question}'
-        prompt += f'\nAnswer: Let\'s think step by step.'
+        return n_shot_text
+
+    system_cot = 'You are a helpful AI assistant that will answer reasoning questions. You will reason step by step ' \
+                'and you will always say at the end "$\\boxed{your answer}$". You must end your response with ' \
+                '"\\boxed{your answer}" everytime!'
+    system_nocot = 'You are a helpful AI assistant that will answer reasoning questions. You will only say ' \
+                '"\\boxed{your answer}". You must end your response with "\\boxed{your answer}" everytime!'
+    
+    prompt = [] # Stores the prompt to give to the model
+    system_prompt = ('system\n' + (system_cot if use_cot else system_nocot)) if is_mistral else ''
+    cot = 'Let\'s think step by step.' if use_cot else ''
+    deepseek = '<think>\n' if is_deepseek else ''
+    final_question = f'Question: {question} ' + cot + '\n' + 'Answer: ' + deepseek
+    
+    if not is_mistral:
+        if use_cot:
+            prompt.append(
+                {'role': 'system', 'content': system_cot}
+            )
+        else:
+            prompt.append(
+                {'role': 'system', 'content': system_nocot}
+            )
+
+    # If number of shots > 0, generate the examples
+    if n > 0:
+        n_shots = system_prompt + '\n' + generate_n_examples(n_shot_data, n, use_cot)
+        full_prompt = n_shots + final_question
+        prompt.append(
+            {'role': 'user', 'content': full_prompt}
+        )
+    # Otherwise, just append the actual question
     else:
-        prompt += f'Question: {question}'
-        prompt += f'\nAnswer: '
+        full_prompt = system_prompt + final_question
+        prompt.append(
+            {'role': 'user', 'content': full_prompt}
+        )
 
     return prompt
 
