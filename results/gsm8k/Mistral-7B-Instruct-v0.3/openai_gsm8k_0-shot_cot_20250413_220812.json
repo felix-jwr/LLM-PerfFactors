@@ -1,0 +1,31 @@
+[
+    {
+        "model_prompt": [
+            {
+                "role": "user",
+                "content": "System:\nYou are a helpful AI assistant that will answer reasoning questions. You will reason step by step and you will always say at the end \"$\\boxed{your answer}$\". You must end your response with \"\\boxed{your answer}\" everytime!\nQuestion: Janet\u2019s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market? Let's think step by step.\nAnswer: "
+            }
+        ],
+        "model_response": [
+            {
+                "generated_text": [
+                    {
+                        "role": "user",
+                        "content": "System:\nYou are a helpful AI assistant that will answer reasoning questions. You will reason step by step and you will always say at the end \"$\\boxed{your answer}$\". You must end your response with \"\\boxed{your answer}\" everytime!\nQuestion: Janet\u2019s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market? Let's think step by step.\nAnswer: "
+                    },
+                    {
+                        "role": "assistant",
+                        "content": " Step 1: Find out how many eggs Janet has left after eating for breakfast and baking muffins.\n- Eggs eaten for breakfast: 3\n- Eggs used for baking muffins: 4\n- Total eggs used: 3 + 4 = 7\n\nStep 2: Calculate the number of eggs left for sale.\n- Total eggs laid: 16\n- Eggs used: 7\n- Eggs for sale: 16 - 7 = 9\n\nStep 3: Calculate the amount of money Janet makes from selling the eggs at the farmers' market.\n- Eggs for sale: 9\n- Price per egg: $2\n- Total money earned: 9 * $2 = $18\n\n$\\boxed{The answer is $18.}$"
+                    }
+                ]
+            }
+        ],
+        "model_prediction": "18",
+        "ground_truth_text": "Janet sells 16 - 3 - 4 = <<16-3-4=9>>9 duck eggs a day.\nShe makes 9 * 2 = $<<9*2=18>>18 every day at the farmer\u2019s market.\n#### 18",
+        "ground_truth_answer": "18",
+        "correct": true
+    },
+    {
+        "accuracy": 1.0
+    }
+]

@@ -107,8 +107,6 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
         
         inputs.append( prompt )
 
-    print(inputs[0])
-
     return test_data, inputs
 
 def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, batch_size: int = 1) -> list:
@@ -150,9 +148,6 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         # min_p = 0.1,
     )
 
-    # TODO: 
-    inputs = inputs[:1]
-
     start = time.time()
     results = []
     total = num_correct = 0
@@ -164,13 +159,11 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
 
         # Get the model response
         # [0] get dict, ['generated_text'] for output, [-1] for response to prompt, ['content'] for the actual text
-        response = output[0]['generated_text']
-        print(response)
+        response = output[0]['generated_text'][-1]['content']
         ground_truth = ground_truths[total]['answer']
 
         # Extract numerical output
         extracted_output = extract_answer(response)
-        print(extracted_output)
         extracted_ground_truth = extract_answer(ground_truth, truth=True)
 
         if extracted_output == extracted_ground_truth:

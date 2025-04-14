@@ -81,23 +81,52 @@ def extract_answer(text: str, eos: str = None, truth: bool = False) -> str:
         output: str, The extracted numerical output from the text.
     """
 
+    def get_boxed(text, number_regex, symbols_regex):
+        # Try looking for a \boxed{}
+        boxed = re.findall(r'\\boxed\{([^}]*)\}', text)
+
+        if boxed:
+            answer = number_regex.findall(boxed[-1])
+            if type(answer) == list: # If more than one number gets detected in the \boxed{}
+                if answer:
+                    answer = answer[-1]
+                    output = symbols_regex.sub('', answer)
+                    
+                    return output
+            elif answer:
+                output = symbols_regex.sub('', answer)
+   
+        return ''
+
+    # She regular on my expression
+    number_regex = re.compile(r'[,\$£%g]?(-?\d+(?:,\d+)*(?:\.\d+)?)')
+    symbols_regex = re.compile(r'[,\$£€¥%g]')
+
+    # If it's the ground truth, just return the number
     if truth:
         answer = re.split(r'####', text)[-1].strip()
-        output = re.sub(r'[,\$£€¥%g]', '', answer)
+        output = symbols_regex.sub('', answer)
+        
         return output
+    
+    # Otherwise, try \boxed{}
+    boxed = get_boxed(text, number_regex, symbols_regex)
+    if boxed: 
+        return boxed
 
-    # If eos is provided, split on it first
+    # Failing that, just get the last number, splitting on eos first (if we have one)
     if eos:
         text = re.split(re.escape(eos), text)[0].strip()
-    
-    # Look for numbers with optional decimal points, commas, and currency symbols
-    all_numbers = re.findall(r'[,\$£€¥%g]?(\d+(?:,\d+)*(?:\.\d+)?)', text)
+
+    all_numbers = number_regex.findall(text)
     
     if all_numbers:
         answer = all_numbers[-1].strip()
-        output = re.sub(r'[,\$£€¥%g]', '', answer)#
+        output = symbols_regex.sub('', answer)
+
         return output
     
+    # Finally, if there aren't any numbers, just resturn empty string
     return ''
 
 
@@ -179,7 +208,7 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, use_cot: bo
                 '"\\boxed{your answer}". You must end your response with "\\boxed{your answer}" everytime!'
     
     prompt = [] # Stores the prompt to give to the model
-    system_prompt = ('system\n' + (system_cot if use_cot else system_nocot)) if is_mistral else ''
+    system_prompt = f'System:\n{(system_cot if use_cot else system_nocot)}\n' if is_mistral else ''
     cot = 'Let\'s think step by step.' if use_cot else ''
     deepseek = '<think>\n' if is_deepseek else ''
     final_question = f'Question: {question} ' + cot + '\n' + 'Answer: ' + deepseek

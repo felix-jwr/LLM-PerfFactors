@@ -26,5 +26,5 @@ python3 -u test_gsm.py \
   --split test \
   --use_cot \
   --n_shot 0 \
-  --batch_size 1 \
+  --batch_size 32 \
   2>&1 | tee ../log/rerun-for-compute-time/gsm8k-test-0shot-cot-Mistral-7B-Instruct-v0.3
