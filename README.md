@@ -1,7 +1,7 @@
 # MastersThesis
 
 ## Docker Setup
-Build image: `hare build -f docker/Dockerfile -t fr411/masters-thesis .` \
+Build image: `hare build -f docker/Dockerfile -t fr411/masters-thesis:latest .` \
 Note that this will overwrite any existing image with the same name.
 
 Run (Single GPU): `hare run --rm --gpus device=<gpu index> fr411/<image name> ` \

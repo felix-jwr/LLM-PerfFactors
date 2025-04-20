@@ -1,0 +1,16 @@
+group: haerae_deepseek_cot
+task:
+  - haerae_general_knowledge_deepseek_cot
+  - haerae_history_deepseek_cot
+  - haerae_loan_word_deepseek_cot
+  - haerae_rare_word_deepseek_cot
+  - haerae_standard_nomenclature_deepseek_cot
+aggregate_metric_list:
+  - metric: acc
+    aggregation: mean
+    weight_by_size: true
+  - metric: acc_norm
+    aggregation: mean
+    weight_by_size: true
+metadata:
+  version: 1.0
