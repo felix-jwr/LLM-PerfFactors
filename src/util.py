@@ -213,7 +213,7 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, use_cot: bo
     deepseek = '<think>\n' if is_deepseek else ''
     final_question = f'Question: {question} ' + cot + '\n' + 'Answer: ' + deepseek
     
-    if not is_mistral:
+    if not (is_mistral or is_deepseek):
         if use_cot:
             prompt.append(
                 {'role': 'system', 'content': system_cot}

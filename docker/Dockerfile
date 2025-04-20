@@ -18,4 +18,4 @@ RUN pip install -e ".[dev]"
 WORKDIR /
 
 # Run run.sh
-CMD ["bash", "/workspace/docker/run_qwen_base_nocot_haerae.sh"]
+CMD ["bash", "/workspace/docker/run.sh"]

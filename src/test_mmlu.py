@@ -34,7 +34,6 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
     returns:
         returns desc.
     """
-    # TODO: Make it so use_cot influences whether cot is actually used, and not just the file saving information
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit = load_in_4bit,                    # Activate 4-bit precision base model loading
@@ -42,6 +41,9 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
         bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
         bnb_4bit_compute_dtype = torch.bfloat16,        # Compute dtype for 4-bit base models
     )
+
+    # MUST have this when using custom tasks like haerae_cot
+    task_manager = lm_eval.tasks.TaskManager(include_path='haerae_cot')
 
     # Set up model args based on whether we're using a single GPU
     model_args = {
@@ -64,7 +66,7 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
         'numpy_random_seed': random_state,
         'torch_random_seed': random_state,
         'num_fewshot': n_shot,
-        # 'task_manager': task_manager,
+        'task_manager': task_manager,
     }
 
     # If max_new_tokens is set

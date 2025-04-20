@@ -82,7 +82,7 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
 
     # Check if the model is one which requires special handling of the input prompt
     is_deepseek = ('deepseek' in MODEL_NAME_SHORT.lower())
-    is_mistral = ('mistral' in MODEL_NAME_SHORT.lower())
+    is_mistral = ('mistral' or 'phi' in MODEL_NAME_SHORT.lower())
 
     # Format training data so they can be randomly sampled for n-shot prompts
     inputs = []
@@ -138,11 +138,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         # model_kwargs = {"torch_dtype": torch.bfloat16},
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
         use_cache = True,
-        
-        # Deepseek Recommends Temp = 0.6
-        # temperature = 0.6,
-        # TODO: on Deepseek tests, ensure model initiates its response with "<think>\n at beginning of every output"
-
+        # temperature = 0.6, # TODO: ONLY ON WITH DEEPSEEK, DEEPSEEK RECOMMENDS TEMP = 0.6
         # Recommends Temp 1.5, Min_P 0.1: https://x.com/menhguin/status/1826132708508213629
         # temperature = 1.5,
         # min_p = 0.1,
