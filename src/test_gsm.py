@@ -49,8 +49,9 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
         token=HF_TOKEN,
     )
 
-    mistral_chat_template = "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST]' + message['content'] + '[/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}"
-    tokeniser.chat_template = mistral_chat_template
+    if 'mistral' in MODEL_NAME_SHORT:
+        mistral_chat_template = "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST]' + message['content'] + '[/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}"
+        tokeniser.chat_template = mistral_chat_template
 
     return model, tokeniser
 
@@ -138,7 +139,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         # model_kwargs = {"torch_dtype": torch.bfloat16},
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
         use_cache = True,
-        # temperature = 0.6, # TODO: ONLY ON WITH DEEPSEEK, DEEPSEEK RECOMMENDS TEMP = 0.6
+        temperature = 0.6, # TODO: ONLY ON WITH DEEPSEEK, DEEPSEEK RECOMMENDS TEMP = 0.6
         # Recommends Temp 1.5, Min_P 0.1: https://x.com/menhguin/status/1826132708508213629
         # temperature = 1.5,
         # min_p = 0.1,

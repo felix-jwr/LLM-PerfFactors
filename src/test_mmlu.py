@@ -43,7 +43,7 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
     )
 
     # MUST have this when using custom tasks like haerae_cot
-    task_manager = lm_eval.tasks.TaskManager(include_path='haerae_cot')
+    task_manager = lm_eval.tasks.TaskManager(include_path='custom_tasks')
 
     # Set up model args based on whether we're using a single GPU
     model_args = {
