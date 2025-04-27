@@ -169,3 +169,6 @@ src/hf_token.txt
 ft_outputs/
 src/_unsloth_sentencepiece_temp/
 src/unsloth_compiled_cache/
+lm-evaluation-harness/
+# Results files for blimp too big for github
+results/blimp

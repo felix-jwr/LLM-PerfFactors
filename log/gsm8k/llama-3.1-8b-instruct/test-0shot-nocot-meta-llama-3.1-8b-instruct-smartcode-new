@@ -1,33 +1,0 @@
-GPU: NVIDIA GeForce RTX 4070 Ti SUPER
-GPU VRAM: 15.99169921875 GB
-CUDA Version: 12.4
-PyTorch Version: 2.6.0+cu124
-Python Version: 2.6.0+cu124
-Random Seed: 42
-Current Time: 2025-03-15 21:00:12
-
-Parameters:
-MODEL_NAME: meta-llama/Llama-3.1-8B-Instruct
-MODEL_NAME_SHORT: Llama-3.1-8B-Instruct
-CHAT_TEMPLATE_NAME: llama-3.1
-MAX_SEQ_LENGTH: 512
-LOAD_IN_4_BIT: True
-DATASET_NAME: openai/gsm8k
-SUBSET_NAME: main
-SPLIT_NAME: test
-USE_COT: False
-N_SHOT: 0
-BATCH_SIZE: 4
-
-Downloading shards:   0%|          | 0/4 [00:00<?, ?it/s]Downloading shards:  25%|██▌       | 1/4 [04:27<13:22, 267.43s/it]Downloading shards:  50%|█████     | 2/4 [09:00<09:01, 270.94s/it]Downloading shards:  75%|███████▌  | 3/4 [13:23<04:27, 267.36s/it]Downloading shards: 100%|██████████| 4/4 [14:26<00:00, 186.58s/it]Downloading shards: 100%|██████████| 4/4 [14:26<00:00, 216.67s/it]
-Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:01<00:05,  1.93s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:04<00:04,  2.10s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:06<00:02,  2.06s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:06<00:00,  1.50s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:06<00:00,  1.70s/it]
-VRAM Usage: ['7.936GB']
-Generating train split:   0%|          | 0/7473 [00:00<?, ? examples/s]Generating train split: 100%|██████████| 7473/7473 [00:00<00:00, 187998.40 examples/s]
-Generating test split:   0%|          | 0/1319 [00:00<?, ? examples/s]Generating test split: 100%|██████████| 1319/1319 [00:00<00:00, 461909.24 examples/s]
-Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 128177.91it/s]
-Device set to use cuda:0
-Evaluating 1319 examples with batch size 4.
-Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 24999.26it/s]
-Accuracy: 983 / 1319 = 0.7453
-Finished in: 10460.38s (7.93s per example)
-Results saved to ../results/Llama-3.1-8B-Instruct/openai_gsm8k_0-shot_nocot_20250316_000915.json

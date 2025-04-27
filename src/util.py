@@ -8,6 +8,7 @@ import pynvml
 import datetime
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Union
 
 
 def check_vram_usage(plot: bool = False) -> list:
@@ -100,7 +101,7 @@ def extract_answer(text: str, eos: str = None, truth: bool = False) -> str:
     return ''
 
 
-def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool, results: list) -> None:
+def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool, results: Union[list, dict]) -> None:
     """
     Save a results .json from a model evaluation.
 
@@ -109,7 +110,7 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
         dataset_name: str, The name of the dataset, 
         n_shot: int, The number of example questions used for the n-shot test.
         use_cot: bool, Whether the 'Let's think step by step.' prompt was used.
-        results: list, The results of model evaluation.
+        results: list or dict, The results of model evaluation.
 
     returns:
         None
@@ -118,14 +119,15 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
     # Clear up any slashes in the model name to avoid making directories
     model_name = model_name.replace('/', '_')
     dataset_name = dataset_name.replace('/', '_')
+    dataset_name_short = dataset_name.split('_')[-1]
 
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    os.makedirs(f'../results/{model_name}', exist_ok=True)
+    os.makedirs(f'../results/{dataset_name_short}/{model_name}', exist_ok=True)
 
     if use_cot:
-        result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
+        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
     else:
-        result_file = f'../results/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
+        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
 
     with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)
@@ -159,8 +161,6 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
 
     # Get random samples from the training set to use as n-shot examples
     prompts = []
-    random.seed(seed)
-    # TODO: Removing "Q:, A:" from prompt to investigate effect to performance (if any)
     for question_and_answer in random.sample(n_shot_data, n):
         prompts.append({'role': 'user', 'content': question_prompt(question_and_answer['question'])})
         prompts.append({'role': 'assistant', 'content': answer_prompt(question_and_answer['answer'], use_cot=use_cot)})
@@ -199,3 +199,84 @@ def print_setup(parameters: dict = None) -> None:
         for key, value in parameters.items():
             print(f'{key}: {value}')
     print()
+
+
+def convert_prompt_format(raw_prompt: str) -> list:
+    """
+    Convert a prompt with special tokens into a clean turn-based conversation format.
+    Works with any n-shot prompt format and handles the final question with no answer.
+    
+    Args:
+        raw_prompt: String prompt potentially containing special tokens
+        
+    Returns:
+        List of dictionaries with alternating user/assistant messages
+    """
+
+    clean_prompt = re.sub(r'<\|[^>]+\|>|begin_of_text|start_header_id|end_header_id|eot_id', '', raw_prompt)
+    
+    # Extract conversation turns using Q/A pattern
+    qa_pairs = []
+    pattern = r'(?:Q:|Question:)\s*(.*?)(?:(?:A:|Answer:)\s*(.*?)(?=(?:Q:|Question:)|$)|$)'
+    matches = re.findall(pattern, clean_prompt, re.DOTALL)  # Include questions w/o answers for zero-shot
+    
+    # Convert matches to formatted conversation turns
+    for question, answer in matches:
+        question = question.strip()
+        if question:  # If question exists
+            qa_pairs.append({"role": "user", "content": question})
+            
+        answer = answer.strip()
+        if answer:  # If answer exists
+            qa_pairs.append({"role": "assistant", "content": answer})
+    
+    return qa_pairs
+
+
+def make_json_safe(results: dict) -> dict:
+    """
+    Goes through data in a results dictionary and casts anything non-JSON-serialisable to a str, to prevent potential
+    errors when saving results.
+
+    args:
+        results: dict, The results dict to make JSON.dump() safe.
+
+    returns:
+        safe_results: dict, The same results, but with non-JSON compatible types cast to str.
+    """
+    
+    safe_results = {}
+
+    for key, value in results.items():
+        try:
+            json.dumps(value)
+            safe_results[key] = value
+
+        except (TypeError, OverflowError) as e:
+            print(f'WARN: Results at key {key} were not JSON-serialisable, casting to str. Make sure to check casted results.')
+            
+            # Recursively make nested dictionaries safe
+            if isinstance(value, dict):
+                safe_results[key] = make_json_safe(value) 
+
+            # Handle lists by checking each element
+            elif isinstance(value, (list, tuple)):
+                
+                safe_list = []
+                for item in value:
+                    if isinstance(item, dict):
+                        safe_list.append(make_json_safe(item))
+                    else:
+                        try:
+                            json.dumps(item)
+                            safe_list.append(item)
+                        except (TypeError, OverflowError):
+                            safe_list.append(str(item))
+
+                safe_results[key] = safe_list
+
+            # Convert non-serialisable values to strings
+            else:
+                safe_results[key] = str(value)
+    
+    return safe_results
