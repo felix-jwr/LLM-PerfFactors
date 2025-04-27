@@ -30,17 +30,17 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
 
     login(token=HF_TOKEN)
 
-    bnb_config = transformers.BitsAndBytesConfig(
-        load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
-        bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
-        bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
-        bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
-    )
+    # bnb_config = transformers.BitsAndBytesConfig(
+    #     load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
+    #     bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
+    #     bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
+    #     bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
+    # )
 
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_name,
         device_map = 'auto',
-        quantization_config = bnb_config,
+        # quantization_config = bnb_config,
         token = HF_TOKEN,
     )
 
@@ -130,6 +130,8 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
     # tokeniser = get_chat_template(tokeniser, chat_template = chat_template)
     tokeniser.pad_token = tokeniser.eos_token
     tokeniser.padding_side = 'left'    # NOTE: Pipeline wants padding on the left (?)
+    temp = 0.6 if 'deepseek' in MODEL_NAME else 1.0
+    print(f'Using temp: {temp}')
     pipe = transformers.pipeline(
         'text-generation',
         model = model,
@@ -139,7 +141,7 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         # model_kwargs = {"torch_dtype": torch.bfloat16},
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
         use_cache = True,
-        temperature = 0.6, # TODO: ONLY ON WITH DEEPSEEK, DEEPSEEK RECOMMENDS TEMP = 0.6
+        temperature = temp,
         # Recommends Temp 1.5, Min_P 0.1: https://x.com/menhguin/status/1826132708508213629
         # temperature = 1.5,
         # min_p = 0.1,

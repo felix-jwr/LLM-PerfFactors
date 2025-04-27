@@ -1,6 +1,22 @@
 # MastersThesis
 
-## Docker Setup
+## TODO: Paper PDF, Other info, finish this README
+
+## Guide
+Below is a guide on running the evaluations in the paper yourself.
+
+### Installing MMLU Tasks
+To run the tasks from MMLU (e.g. HAERAE), you'll need the LM evaluation harness and custom tasks defined so that the
+models can use CoT on tasks which don't have it implemented.
+
+To do this, you'll need to follow these steps:
+1. `cd` into the `src` folder
+2. `git clone https://github.com/felix-jwr/lm-evaluation-harness.git`
+
+That's it! The Dockerfile should now be able to run `pip install` on the LM evaluation harness, which is needed for the
+MMLU dataset tests via the `test_mmlu.py` file.
+
+### Docker Setup
 Build image: `hare build -f docker/Dockerfile -t fr411/masters-thesis:latest .` \
 Note that this will overwrite any existing image with the same name.
 
@@ -25,10 +41,10 @@ run (meaning you can delete/manipulate files after the container has been cleane
 Using `-d` combined with`-v` means you can have the container run in the background, write its results to a file (if you
 have written code to do so), and clean up. This way you can just let it run and come back and see the results later.
 
-### Docker Commands to Use
+#### Docker Commands to Use
 (Omit `-d` if still testing)
-- Single GPU: `hare run --rm --gpus device=6 --user $(id -u):$(id -g) -d -v $(pwd):/app fr411/masters-thesis`
-- Multiple GPUs: `hare run --rm --gpus '"device=6,7"' --user $(id -u):$(id -g) -d -v $(pwd):/app fr411/masters-thesis`
+- Single GPU: `hare run --rm --gpus device=6 -v $(pwd):/workspace fr411/masters-thesis`
+- Multiple GPUs: `hare run --rm --gpus '"device=6,7"' -v $(pwd):/workspace fr411/masters-thesis`
 
-#### Running Locally on Windows
+##### Running Locally on Windows
 `docker run -it --rm --gpus all -v "${PWD}:/workspace/" fr411/masters-thesis`
