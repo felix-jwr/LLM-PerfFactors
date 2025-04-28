@@ -170,6 +170,8 @@ if __name__ == '__main__':
                         help='Maximum sequence length')
     parser.add_argument('--load_in_4bit', action='store_true', default=True,
                         help='Whether to load model in 4-bit precision')
+    parser.add_argument('--no_4bit', action='store_false', dest='load_in_4bit',
+                        help='Whether to load model in 4-bit precision')
     parser.add_argument('--single_gpu', action='store_true', default=True,
                         help='Run evaluation on single GPU')
     parser.add_argument('--multi_gpu',  action='store_false', dest='single_gpu',
