@@ -5,28 +5,23 @@ import argparse
 import numpy as np
 from huggingface_hub import login
 from datasets import load_dataset
-# from lm_eval.api.model import LM
 from lm_eval.utils import setup_logging
 from transformers import BitsAndBytesConfig
 from util import print_setup, check_vram_usage, save_results, extract_answer, convert_prompt_format, make_json_safe
 
 
-setup_logging("DEBUG") # optional, but recommended; or you can set up logging yourself
+setup_logging("DEBUG") # Set up logging
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
-# indexes all tasks from the `lm_eval/tasks` subdirectory.
-# Alternatively, you can set `TaskManager(include_path="path/to/my/custom/task/configs")`
-# to include a set of tasks in a separate directory.
-# task_manager = lm_eval.tasks.TaskManager()
-
-# Setting `task_manager` to the one above is optional and should generally be done
-# if you want to include tasks from paths other than ones in `lm_eval/tasks`.
-# `simple_evaluate` will instantiate its own task_manager if it is set to None here.
-def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = False, task_names: list = ['blimp'], 
+def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = False, task_names: list = ['haerae'], 
                   single_gpu: bool = True, batch_size: int = 1, random_state: int = 42, load_in_4bit: bool = True,
                   n_shot: int = 0) -> dict:
     """
-    Function desc.
+    Function to load an evaluate a model on a (list) of tasks by calling the simple_evaluate() function from
+    the LM-Evaluation-Harness.
+    Note that this requires LM-Evaluation-Harness be installed in this repo. See README.md for details.
+
+
 
     args:
         args desc.
@@ -41,6 +36,18 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
         bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
         bnb_4bit_compute_dtype = torch.bfloat16,        # Compute dtype for 4-bit base models
     )
+
+    # /****************************************************************************************************************
+    # *
+    # * THE FOLLOWING CODE BLOCK MAKES USE OF THE LM EVALUATION HARNESS FOR ITS `simple_evaluate()` FUNCTION
+    # *
+    # *    Title: Language Model Evaluation Harness
+    # *    Author: EleutherAI
+    # *    Date: 05/03/2025
+    # *    Code version: 0.4.8
+    # *    Availability: https://github.com/EleutherAI/lm-evaluation-harness
+    # *
+    # ****************************************************************************************************************/
 
     # MUST have this when using custom tasks like haerae_cot
     task_manager = lm_eval.tasks.TaskManager(include_path='custom_tasks')
@@ -81,18 +88,25 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
     results = lm_eval.simple_evaluate(**eval_params)
 
     # Cast values which are not JSON serialisable to string
-    results = make_json_safe(results)
+    formatted_results = make_json_safe(results)
 
     # Extract actual results
-    # formatted_results = format_model_responses_gsm8k(results = results, use_cot = use_cot)
-    formatted_results = results
+    if 'gsmk' or 'gsm8k_cot' in task_names:
+        formatted_results = format_model_responses_gsm8k(results = results, use_cot = use_cot)
     
     return formatted_results
 
 
 def format_model_responses_gsm8k(results: dict, use_cot: bool):
     """
-    get raw responses for custom accuracy calc cuz lm harness one sucks
+    Gets the raw responses from the LM-Evaluation-Harness output.
+
+    args:
+        results: dict, The LM-Evaluation-Harness output.
+        use_cot: bool, Whether CoT prompting was used.
+
+    returns:
+        formatted_responses: dict, The re-formatted results.
     """
 
     ground_truths = load_dataset('openai/gsm8k', 'main', split='test')
@@ -139,11 +153,6 @@ def format_model_responses_gsm8k(results: dict, use_cot: bool):
     return formatted_responses
 
 
-# TODO: TODO LIST
-    # TODO: No custom filters defined
-    # 2025-03-21:14:34:30 DEBUG    [tasks:539] File _evalita-mp_ner_adg.yaml in C:\Users\felix\VSCode Projects\MastersThesis\src\lm-evaluation-harness\lm_eval\tasks/evalita_llm could not be loaded
-    # 2025-03-21:14:34:30 DEBUG    [tasks:539] File _evalita-mp_ner_fic.yaml in C:\Users\felix\VSCode Projects\MastersThesis\src\lm-evaluation-harness\lm_eval\tasks/evalita_llm could not be loaded
-    # 2025-03-21:14:34:30 DEBUG    [tasks:539] File _evalita-mp_ner_wn.yaml in C:\Users\felix\VSCode Projects\MastersThesis\src\lm-evaluation-harness\lm_eval\tasks/evalita_llm could not be loaded
 if __name__ == '__main__':
     #################################
     #     LOAD SETTINGS FROM CLI    #
@@ -163,7 +172,7 @@ if __name__ == '__main__':
                         help='Whether to load model in 4-bit precision')
     parser.add_argument('--single_gpu', action='store_true', default=True,
                         help='Run evaluation on single GPU')
-    parser.add_argument('--multi-gpu',  action='store_false', dest='single_gpu',
+    parser.add_argument('--multi_gpu',  action='store_false', dest='single_gpu',
                         help='Run evaluation on multiple GPUs')
     
     # Dataset parameters
@@ -199,6 +208,12 @@ if __name__ == '__main__':
     N_SHOT = args.n_shot
     BATCH_SIZE = args.batch_size
 
+    # Needed for saving results
+    if type(TASK_NAMES) == str:
+        dataset_name = TASK_NAMES
+    elif type(TASK_NAMES) == list:
+        dataset_name = TASK_NAMES[0]
+
     #################################
     # DO NOT MODIFY BELOW THIS LINE #
     #################################
@@ -223,27 +238,7 @@ if __name__ == '__main__':
     }
     print_setup(parameters=params)
 
-    # 1. Initialise the model and tokeniser
-    # loaded_model, loaded_tokeniser = init(
-    #     model_name = MODEL_NAME, 
-    #     max_seq_length = MAX_SEQ_LENGTH, 
-    #     dtype = DTYPE, 
-    #     load_in_4_bit = LOAD_IN_4_BIT
-    # )
-    # check_vram_usage()
-
-    # 2. Load and format the dataset
-    # raw_dataset, model_prompts = format_dataset(
-    #     template_name = CHAT_TEMPLATE_NAME, 
-    #     dataset_name = DATASET_NAME, 
-    #     subset_name = SUBSET_NAME, 
-    #     n_shot = N_SHOT, 
-    #     use_cot = USE_COT,
-    #     random_state = RANDOM_STATE,
-    #     tokeniser = loaded_tokeniser
-    # )
-
-    # 3. Evaluate the model
+    # 1. Evaluate the model
     results = evaluate_mmlu(
         model_name = MODEL_NAME,
         max_new_tokens = MAX_SEQ_LENGTH,
@@ -256,14 +251,11 @@ if __name__ == '__main__':
         n_shot = N_SHOT
     )
 
-    # 4. Save the results
+    # 2. Save the results
     save_results(
         model_name = MODEL_NAME_SHORT, 
-        dataset_name = 'mmlu-haerae',
+        dataset_name = dataset_name,
         n_shot = N_SHOT, 
         use_cot = USE_COT,
         results = results
     )
-
-    # 5. Clear VRAM
-    # empty_vram(model = loaded_model, trainer = None)

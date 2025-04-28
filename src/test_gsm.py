@@ -7,7 +7,6 @@ import transformers
 from tqdm import tqdm
 from huggingface_hub import login
 from datasets import load_dataset
-# from unsloth.chat_templates import get_chat_template
 from util import empty_vram, extract_answer, save_results, check_vram_usage, print_setup, generate_n_shot_prompt
 
 
@@ -21,7 +20,7 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
     args:
         model_name: str, Name of the model to load from HF.
         max_seq_length: int, Maximum sequence length.
-        bias: str, LoRA Bias (optimised for none).
+        load_in_4_bit: str, Whether to load the model with 4-bit quantisation enabled (RECOMMENDED).
 
     returns:
         model: AutoModelForCausalLM, The loaded HF model.
@@ -30,17 +29,17 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
 
     login(token=HF_TOKEN)
 
-    bnb_config = transformers.BitsAndBytesConfig(
-        load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
-        bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
-        bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
-        bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
-    )
+    # bnb_config = transformers.BitsAndBytesConfig(
+    #     load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
+    #     bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
+    #     bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
+    #     bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
+    # )
 
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_name,
         device_map = 'auto',
-        quantization_config = bnb_config,
+        # quantization_config = bnb_config,
         token = HF_TOKEN,
     )
 
@@ -66,7 +65,7 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
         template_name: str, The name of the chat template for the model.
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
-        split_name: str, The name of the split to load (e.g. 'train', 'test').
+        n_shot: str, The number of shots to use (e.g. 0 or 8).
         use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
         random_state: int, Fix the random state (to ensure reproducability).
         tokeniser: (any), The tokeniser to use for formatting the prompts.
@@ -119,7 +118,6 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
         tokeniser: (any), The (loaded) tokeniser.
         inputs: list, The inputs to the model.
         ground_truths: dict, The ground truths for the inputs.
-        chat_template: str, The chat template to use for the model. Default is 'unsloth'.
         batch_size: int, The batch size to use for inference.
 
     returns:

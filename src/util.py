@@ -173,7 +173,6 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, use_cot: bo
         n_shot_data: dict, Training examples to use as n shots. Mustn't be from the test set.
         n: int, The number of example questions to include. Must be > 0.
         question: str, The actual prompt from the test set.
-        seed: int, The random seed to use for reproducibility.
         use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
         is_deepseek: bool, Whether the current model is DeepSeek (thus whether to use <think>\n at beginning of output)
         is_mistral: bool, Whether the current model is Mistral (Mistral doesn't accept system prompts)
@@ -273,11 +272,11 @@ def convert_prompt_format(raw_prompt: str) -> list:
     Convert a prompt with special tokens into a clean turn-based conversation format.
     Works with any n-shot prompt format and handles the final question with no answer.
     
-    Args:
-        raw_prompt: String prompt potentially containing special tokens
+    args:
+        raw_prompt: str, String prompt potentially containing special tokens.
         
-    Returns:
-        List of dictionaries with alternating user/assistant messages
+    returns:
+        qa_pairs: list, List of dictionaries with alternating user/assistant messages
     """
 
     clean_prompt = re.sub(r'<\|[^>]+\|>|begin_of_text|start_header_id|end_header_id|eot_id', '', raw_prompt)
