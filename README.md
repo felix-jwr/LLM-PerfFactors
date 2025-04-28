@@ -14,7 +14,7 @@ To do this, you'll need to follow these steps:
 2. `git clone https://github.com/felix-jwr/lm-evaluation-harness.git`
 
 That's it! The Dockerfile should now be able to run `pip install` on the LM evaluation harness, which is needed for the
-MMLU dataset tests via the `test_mmlu.py` file.
+HAERAE dataset tests via the `test_lm_eval.py` file.
 
 ### Docker Setup
 Build image: `hare build -f docker/Dockerfile -t fr411/masters-thesis:latest .` \
