@@ -6,7 +6,7 @@
 Below is a guide on running the evaluations in the paper yourself.
 
 ### Installing LM Eval Harness
-To run the tasks from MMLU (e.g. HAERAE), you'll need the LM evaluation harness and custom tasks defined so that the
+To run HAERAE, you'll need the LM evaluation harness and custom tasks defined so that the
 models can use CoT on tasks which don't have it implemented.
 
 To do this, you'll need to follow these steps:
