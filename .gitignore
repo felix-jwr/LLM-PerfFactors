@@ -167,3 +167,5 @@ cython_debug/
 # Repo Specific Ignores
 src/hf_token.txt
 lm-evaluation-harness/
+log/
+results/

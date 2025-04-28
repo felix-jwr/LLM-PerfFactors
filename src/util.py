@@ -148,15 +148,14 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
     # Clear up any slashes in the model name to avoid making directories
     model_name = model_name.replace('/', '_')
     dataset_name = dataset_name.replace('/', '_')
-    dataset_name_short = dataset_name.split('_')[-1]
 
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    os.makedirs(f'../results/{dataset_name_short}/{model_name}', exist_ok=True)
+    os.makedirs(f'../results/{dataset_name}/{model_name}', exist_ok=True)
 
     if use_cot:
-        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
+        result_file = f'../results/{dataset_name}/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
     else:
-        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
+        result_file = f'../results/{dataset_name}/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
 
     with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)

@@ -13,13 +13,13 @@ from util import empty_vram, extract_answer, save_results, check_vram_usage, pri
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
 
-def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) -> tuple:
+def init(model_name: str, dtype: str, load_in_4_bit: bool) -> tuple:
     """
     Initialise Model and Tokeniser.
 
     args:
         model_name: str, Name of the model to load from HF.
-        max_seq_length: int, Maximum sequence length.
+        dtype: str, Compute dtype for 4-bit base models.
         load_in_4_bit: str, Whether to load the model with 4-bit quantisation enabled (RECOMMENDED).
 
     returns:
@@ -48,21 +48,21 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
         token=HF_TOKEN,
     )
 
-    if 'mistral' in MODEL_NAME_SHORT:
+    if 'mistral' in model_name:
         mistral_chat_template = "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST]' + message['content'] + '[/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}"
         tokeniser.chat_template = mistral_chat_template
 
     return model, tokeniser
 
 
-def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_shot: int, use_cot: bool, random_state: int, 
+def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot: int, use_cot: bool, random_state: int, 
                    tokeniser) -> tuple:
     """
     Load a dataset from HF, and apply preprocessing (i.e. formatting prompts using the chat template appropriate for 
     the model used).
 
     args:
-        template_name: str, The name of the chat template for the model.
+        model_name: str, The name of the model.
         dataset_name: str, The name of the dataset to load from HF.
         subset_name: str, The name of the subset of the dataset to load (e.g. 'main').
         n_shot: str, The number of shots to use (e.g. 0 or 8).
@@ -78,11 +78,16 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
     # Load the dataset from HF
     all_data = load_dataset(dataset_name, subset_name)
     test_data = all_data["test"].to_list()
-    train_data = all_data["train"].to_list()
+
+    # (GSM Symbolic lacks train set)
+    try: 
+        train_data = all_data["train"].to_list()
+    except KeyError:
+        train_data = test_data
 
     # Check if the model is one which requires special handling of the input prompt
-    is_deepseek = ('deepseek' in MODEL_NAME_SHORT.lower())
-    is_mistral = ('mistral' or 'phi' in MODEL_NAME_SHORT.lower())
+    is_deepseek = ('deepseek' in model_name.lower())
+    is_mistral = ('mistral' or 'phi' in model_name.lower())
 
     # Format training data so they can be randomly sampled for n-shot prompts
     inputs = []
@@ -109,15 +114,18 @@ def format_dataset(template_name: str, dataset_name: str, subset_name: str, n_sh
 
     return test_data, inputs
 
-def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: dict, batch_size: int = 1) -> list:
+def evaluate_model(model: dict, model_name: str, tokeniser: list, inputs: list, ground_truths: dict, 
+                   max_new_tokens: int, batch_size: int = 1) -> list:
     """
     Evaluate the model's accuracy given a set of decoded outputs and ground truths.
 
     args:
         model: AutoModelForCausalLM, The (loaded) model.
+        model_name: str, The name of the model.
         tokeniser: (any), The (loaded) tokeniser.
         inputs: list, The inputs to the model.
         ground_truths: dict, The ground truths for the inputs.
+        max_new_tokens: int, The maximum length (in tokens) of model responses.
         batch_size: int, The batch size to use for inference.
 
     returns:
@@ -127,14 +135,14 @@ def evaluate_model(model: dict, tokeniser: list, inputs: list, ground_truths: di
     # Configure model generator for inference
     # tokeniser = get_chat_template(tokeniser, chat_template = chat_template)
     tokeniser.pad_token = tokeniser.eos_token
-    tokeniser.padding_side = 'left'    # NOTE: Pipeline wants padding on the left (?)
-    temp = 0.6 if 'deepseek' in MODEL_NAME else 1.0
+    tokeniser.padding_side = 'left'    # NOTE: Pipeline wants padding on the left
+    temp = 0.6 if 'deepseek' in model_name else 1.0
     print(f'Using temp: {temp}')
     pipe = transformers.pipeline(
         'text-generation',
         model = model,
         tokenizer = tokeniser,
-        max_new_tokens = MAX_SEQ_LENGTH,
+        max_new_tokens = max_new_tokens,
         pad_token_id = tokeniser.eos_token_id,
         # model_kwargs = {"torch_dtype": torch.bfloat16},
         # Turns generation from O(n^3) to O(n^2): https://discuss.huggingface.co/t/what-is-the-purpose-of-use-cache-in-decoder/958/2
@@ -195,9 +203,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Run multi GPU inference test with LLM model')
     
     # Model parameters
-    parser.add_argument('--model_name', type=str, default='unsloth/Llama-3.1-8B-Instruct-bnb-4bit',
+    parser.add_argument('--model_name', type=str, default='meta-llama/Llama-3.1-8B-Instruct',
                         help='Name of the model to load from HF')
-    parser.add_argument('--chat_template', type=str, default='unsloth',
+    parser.add_argument('--chat_template', type=str, default='llama-3.1',
                         help='Chat template to use')
     parser.add_argument('--max_seq_length', type=int, default=512,
                         help='Maximum sequence length')
@@ -273,7 +281,6 @@ if __name__ == '__main__':
     # 1. Initialise the model and tokeniser
     loaded_model, loaded_tokeniser = init(
         model_name = MODEL_NAME, 
-        max_seq_length = MAX_SEQ_LENGTH, 
         dtype = DTYPE, 
         load_in_4_bit = LOAD_IN_4_BIT
     )
@@ -281,7 +288,7 @@ if __name__ == '__main__':
 
     # 2. Load and format the dataset
     raw_dataset, model_prompts = format_dataset(
-        template_name = CHAT_TEMPLATE_NAME, 
+        model_name = MODEL_NAME, 
         dataset_name = DATASET_NAME, 
         subset_name = SUBSET_NAME, 
         n_shot = N_SHOT, 
@@ -293,10 +300,11 @@ if __name__ == '__main__':
     # 3. Evaluate the model
     model_results = evaluate_model(
         model = loaded_model,
+        model_name = MODEL_NAME,
         tokeniser = loaded_tokeniser,
         inputs = model_prompts, 
         ground_truths = raw_dataset,
-        # chat_template = 
+        max_new_tokens = MAX_SEQ_LENGTH,
         batch_size = BATCH_SIZE
     )
 

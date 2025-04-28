@@ -83,9 +83,10 @@ def evaluate(model_name: str, max_new_tokens: int = None, use_cot: bool = False,
         'cache_requests': True
     }
 
+    # TODO: temporarily commenting this out
     # If max_new_tokens is set
-    if max_new_tokens is not None:
-        eval_params['gen_kwargs'] = {'max_new_tokens': max_new_tokens}
+    # if max_new_tokens is not None:
+    #     eval_params['gen_kwargs'] = {'max_new_tokens': max_new_tokens}
 
     # Only specify device for single GPU setup
     if single_gpu:
@@ -198,6 +199,8 @@ if __name__ == '__main__':
                         help='Number of examples for few-shot prompting')
     parser.add_argument('--batch_size', type=int, default=1,
                         help='Batch size to use for inference')
+    parser.add_argument('--results_dir', type=str, default='haerae', 
+                        help='Directory to save results under.')
     
     args = parser.parse_args()
 
@@ -217,6 +220,7 @@ if __name__ == '__main__':
     USE_COT = args.use_cot
     N_SHOT = args.n_shot
     BATCH_SIZE = args.batch_size
+    results_dir = args.results_dir
 
     # Needed for saving results
     if type(TASK_NAMES) == str:
@@ -264,7 +268,7 @@ if __name__ == '__main__':
     # 2. Save the results
     save_results(
         model_name = MODEL_NAME_SHORT, 
-        dataset_name = dataset_name,
+        dataset_name = results_dir,
         n_shot = N_SHOT, 
         use_cot = USE_COT,
         results = results
