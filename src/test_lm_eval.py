@@ -13,18 +13,24 @@ from util import print_setup, check_vram_usage, save_results, extract_answer, co
 setup_logging("DEBUG") # Set up logging
 HF_TOKEN = open('./hf_token.txt', 'r').read().strip()
 
-def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = False, task_names: list = ['haerae'], 
-                  single_gpu: bool = True, batch_size: int = 1, random_state: int = 42, load_in_4bit: bool = True,
-                  n_shot: int = 0) -> dict:
+def evaluate(model_name: str, max_new_tokens: int = None, use_cot: bool = False, task_names: list = ['haerae'], 
+            single_gpu: bool = True, batch_size: int = 1, random_state: int = 42, load_in_4bit: bool = True,
+            n_shot: int = 0) -> dict:
     """
     Function to load an evaluate a model on a (list) of tasks by calling the simple_evaluate() function from
     the LM-Evaluation-Harness.
     Note that this requires LM-Evaluation-Harness be installed in this repo. See README.md for details.
 
-
-
     args:
-        args desc.
+        model_name: str, The namme of the model to load.
+        max_new_tokens: int, The maximum number of new tokens to generate.
+        use_cot: bool, Whether to use CoT prompting.
+        task_names: list, List of tasks to evaluate on.
+        single_gpu: bool, Whether to use a single (or multi) GPU.
+        batch_size: int, Batch size.
+        random_state: int, Fix the random state for reproduciblity.
+        load_in_4bit: bool, Whether to load with 4-bit quantisation
+        n_shot: int, Number of shots to include in prompt.
 
     returns:
         returns desc.
@@ -74,6 +80,7 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
         'torch_random_seed': random_state,
         'num_fewshot': n_shot,
         'task_manager': task_manager,
+        'cache_requests': True
     }
 
     # If max_new_tokens is set
@@ -91,7 +98,8 @@ def evaluate_mmlu(model_name: str, max_new_tokens: int = None, use_cot: bool = F
     formatted_results = make_json_safe(results)
 
     # Extract actual results
-    if 'gsmk' or 'gsm8k_cot' in task_names:
+    if 'gsm8k' in task_names or 'gsm8k_cot' in task_names:
+        print('Formatting GSM8k Results...')
         formatted_results = format_model_responses_gsm8k(results = results, use_cot = use_cot)
     
     return formatted_results
@@ -180,7 +188,7 @@ if __name__ == '__main__':
     # Dataset parameters
     parser.add_argument('--random_seed', type=int, default=42,
                         help='Fix random seed to ensure reproducibility')
-    parser.add_argument('--task_names', nargs='+', default=['blimp'],
+    parser.add_argument('--task_names', nargs='+', default=['haerae'],
                         help='Task names to run via LM Evaluation Harness (incl. Custom Tasks)')
     parser.add_argument('--use_cot', action='store_true', default=True,
                         help='Use chain-of-thought prompting')
@@ -241,7 +249,7 @@ if __name__ == '__main__':
     print_setup(parameters=params)
 
     # 1. Evaluate the model
-    results = evaluate_mmlu(
+    results = evaluate(
         model_name = MODEL_NAME,
         max_new_tokens = MAX_SEQ_LENGTH,
         use_cot = USE_COT,
