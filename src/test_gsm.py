@@ -29,17 +29,17 @@ def init(model_name: str, max_seq_length: int, dtype: str, load_in_4_bit: bool) 
 
     login(token=HF_TOKEN)
 
-    # bnb_config = transformers.BitsAndBytesConfig(
-    #     load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
-    #     bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
-    #     bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
-    #     bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
-    # )
+    bnb_config = transformers.BitsAndBytesConfig(
+        load_in_4bit = load_in_4_bit,                   # Activate 4-bit precision base model loading
+        bnb_4bit_use_double_quant = True,               # Activate nested quant for 4-bit base models (double quant)
+        bnb_4bit_quant_type = 'nf4',                    # Quantisation type (fp4 or nf4)
+        bnb_4bit_compute_dtype = dtype,                 # Compute dtype for 4-bit base models
+    )
 
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_name,
         device_map = 'auto',
-        # quantization_config = bnb_config,
+        quantization_config = bnb_config,
         token = HF_TOKEN,
     )
 

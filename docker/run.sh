@@ -40,10 +40,10 @@ python3 -u test_gsm.py \
   --model_name "meta-llama/Llama-3.1-8B-Instruct" \
   --chat_template "llama-3.1" \
   --max_seq_length 512 \
-  --no_4bit \
+  --load_in_4bit \
   --random_seed 42 \
   --dataset openai/gsm8k \
   --no_cot \
   --n_shot 0 \
-  --batch_size 1 \
-  2>&1 | tee ../log/test-gsm8k-0shot-nocot-Llama-3.1-8B-Instruct-NON-4BIT.log
+  --batch_size 16 \
+  2>&1 | tee ../log/test-gsm8k-0shot-nocot-Llama-3.1-8B-Instruct.log
