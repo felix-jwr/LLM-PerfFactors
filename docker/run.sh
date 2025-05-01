@@ -38,8 +38,8 @@ cd /workspace/src/
 ######################################################################################################################
 
 python3 -u test_gsm.py \
-  --model_name "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B" \
-  --chat_template "deepseek" \
+  --model_name "meta-llama/Llama-3.1-8B-Instruct" \
+  --chat_template "llama-3.1" \
   --max_seq_length 512 \
   --load_in_4bit \
   --random_seed 42 \
@@ -49,4 +49,4 @@ python3 -u test_gsm.py \
   --no_cot \
   --n_shot 0 \
   --batch_size 24 \
-  2>&1 | tee ../log/gsm_symbolic/test-gsm-symbolic-0shot-nocot-R1-Distill-Qwen-14B.log
+  2>&1 | tee ../log/gsm_symbolic/test-gsm-symbolic-0shot-nocot-Llama-3.1-8B-Instruct.log
