@@ -1,6 +1,18 @@
-# MastersThesis
+# [Evaluating the Effect of Model Scale, Prompting Strategies, and Distillation on LLM Performance]()
 
-## TODO: Paper PDF, Other info, finish this README
+## Info
+
+This project evaluates the individual and combined effects of model scale, distillation, zero- and few-shot prompting, 
+and chain of thought (CoT) prompting on model performance.
+
+We test on GSM8k and HAERAE, with an exploratory evaluation on GSM Symbolic, however our code aims to be generally
+applicable and can be used with any of the tests available on the Language Model Evaluation Harness (with minimal 
+modification), or any dataset on HuggingFace (may require additional modification).
+
+A PDF of the full study is included above, with a guide on setup to replicate the results included below.
+Whilst we use Docker to run our evaluations, this is not strictly a requirement, as the scripts can just as easily be
+run outside of a docker container.
+A link to download a .zip containing our logs and results is included at the end of this README.
 
 ## Guide
 Below is a guide on running the evaluations in the paper yourself.
@@ -48,3 +60,6 @@ have written code to do so), and clean up. This way you can just let it run and 
 
 ##### Running Locally on Windows
 `docker run -it --rm --gpus all -v "${PWD}:/workspace/" fr411/masters-thesis`
+
+## Downloading our Results
+Click [here]() to download a .zip of our results from Google Drive.
