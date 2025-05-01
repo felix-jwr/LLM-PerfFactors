@@ -51,6 +51,9 @@ def init(model_name: str, dtype: str, load_in_4_bit: bool) -> tuple:
     if 'mistral' in model_name:
         mistral_chat_template = "{{ bos_token }}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% if message['role'] == 'user' %}{{ '[INST]' + message['content'] + '[/INST]' }}{% elif message['role'] == 'assistant' %}{{ message['content'] + eos_token}}{% else %}{{ raise_exception('Only user and assistant roles are supported!') }}{% endif %}{% endfor %}"
         tokeniser.chat_template = mistral_chat_template
+    elif 'gemma' in model_name:
+        gemma_chat_template = "{% set system_message = (messages[0]['content'] | trim + '\n\n') if messages[0]['role'] == 'system' else '' %}{% set messages = messages[1:] if messages[0]['role'] == 'system' else messages %}{% for message in messages %}{% if (message['role'] == 'user') != (loop.index0 % 2 == 0) %}{{ raise_exception('Conversation roles must alternate user/assistant/user/assistant/...') }}{% endif %}{% set content = (system_message + message['content']) if loop.index0 == 0 else message['content'] %}{% set role = 'model' if message['role'] == 'assistant' else message['role'] %}{{ '<start_of_turn>' + role + '\n' + content | trim + '<end_of_turn>\n' }}{% endfor %}{% if add_generation_prompt %}{{'<start_of_turn>model\n'}}{% endif %}"
+        tokeniser.chat_template = gemma_chat_template
 
     return model, tokeniser
 
@@ -87,7 +90,8 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot:
 
     # Check if the model is one which requires special handling of the input prompt
     is_deepseek = ('deepseek' in model_name.lower())
-    is_mistral = ('mistral' or 'phi' in model_name.lower())
+    models_without_sys_prompt = ['mistral', 'phi', 'gemma']
+    no_sys_prompt = any(model in model_name.lower() for model in models_without_sys_prompt)
 
     # Format training data so they can be randomly sampled for n-shot prompts
     inputs = []
@@ -100,7 +104,7 @@ def format_dataset(model_name: str, dataset_name: str, subset_name: str, n_shot:
             question = test_data[i]['question'],
             use_cot = use_cot,
             is_deepseek = is_deepseek,
-            is_mistral = is_mistral
+            is_mistral = no_sys_prompt
         )
         
         # Don't need to tokenise here as the pipeline does it
