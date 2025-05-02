@@ -1,4 +1,4 @@
-# [Evaluating the Effect of Model Scale, Prompting Strategies, and Distillation on LLM Performance]()
+# [Evaluating the Effect of Model Scale, Prompting Strategies, and Distillation on LLM Performance](https://drive.google.com/file/d/1EPdR1478azsNA09ZItoTcITfVrhd0T2I/view?usp=sharing)
 
 ## Info
 
@@ -61,5 +61,11 @@ have written code to do so), and clean up. This way you can just let it run and 
 ##### Running Locally on Windows
 `docker run -it --rm --gpus all -v "${PWD}:/workspace/" fr411/masters-thesis`
 
+### Model Setup
+Some of the models we tested require you to request access, meaning to replicate results for these models you will need to:
+1. Create a HuggingFace account
+2. Request access to the appropriate model(s)
+3. Set up an API token in a text file in `src/` to load the models via the scripts
+
 ## Downloading our Results
-Click [here]() to download a .zip of our results from Google Drive.
+Click [here](https://drive.google.com/file/d/1dIeyDmnf_PIUm7SpWz8XmofnUtfpoGx_/view?usp=sharing) to download a .zip of our results from Google Drive.
