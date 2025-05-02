@@ -83,10 +83,9 @@ def evaluate(model_name: str, max_new_tokens: int = None, use_cot: bool = False,
         'cache_requests': True
     }
 
-    # TODO: temporarily commenting this out
     # If max_new_tokens is set
-    # if max_new_tokens is not None:
-    #     eval_params['gen_kwargs'] = {'max_new_tokens': max_new_tokens}
+    if max_new_tokens is not None:
+        eval_params['gen_kwargs'] = {'max_new_tokens': max_new_tokens}
 
     # Only specify device for single GPU setup
     if single_gpu:
