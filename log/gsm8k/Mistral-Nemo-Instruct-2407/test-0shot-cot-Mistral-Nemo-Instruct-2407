@@ -1,30 +1,0 @@
-GPU: NVIDIA RTX A5000
-GPU VRAM: 23.58343505859375 GB
-CUDA Version: 12.4
-PyTorch Version: 2.6.0+cu124
-Python Version: 2.6.0+cu124
-Random Seed: 42
-Current Time: 2025-03-21 09:29:45
-
-Parameters:
-MODEL_NAME: mistralai/Mistral-Nemo-Instruct-2407
-MODEL_NAME_SHORT: Mistral-Nemo-Instruct-2407
-CHAT_TEMPLATE_NAME: mistral
-MAX_SEQ_LENGTH: 512
-LOAD_IN_4_BIT: True
-DATASET_NAME: openai/gsm8k
-SUBSET_NAME: main
-SPLIT_NAME: test
-USE_COT: True
-N_SHOT: 0
-BATCH_SIZE: 16
-
-Loading checkpoint shards:   0%|          | 0/5 [00:00<?, ?it/s]Loading checkpoint shards:  20%|██        | 1/5 [00:01<00:05,  1.35s/it]Loading checkpoint shards:  40%|████      | 2/5 [00:02<00:04,  1.49s/it]Loading checkpoint shards:  60%|██████    | 3/5 [00:04<00:03,  1.58s/it]Loading checkpoint shards:  80%|████████  | 4/5 [00:06<00:01,  1.82s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:08<00:00,  1.90s/it]Loading checkpoint shards: 100%|██████████| 5/5 [00:08<00:00,  1.77s/it]
-VRAM Usage: ['8.747GB']
-Formatting prompts:   0%|          | 0/1319 [00:00<?, ?it/s]Formatting prompts: 100%|██████████| 1319/1319 [00:00<00:00, 97511.01it/s]
-Device set to use cuda:0
-Evaluating 1319 examples with batch size 16.
-Evaluating:   0%|          | 0/1319 [00:00<?, ?it/s]Evaluating: 100%|██████████| 1319/1319 [00:00<00:00, 52845.47it/s]
-Accuracy: 957 / 1319 = 0.7255
-Finished in: 7095.32s (5.38s per example)
-Results saved to ../results/Mistral-Nemo-Instruct-2407/openai_gsm8k_0-shot_cot_20250321_112815.json
