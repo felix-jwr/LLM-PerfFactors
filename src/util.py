@@ -81,23 +81,52 @@ def extract_answer(text: str, eos: str = None, truth: bool = False) -> str:
         output: str, The extracted numerical output from the text.
     """
 
+    def get_boxed(text, number_regex, symbols_regex):
+        # Try looking for a \boxed{}
+        boxed = re.findall(r'\\boxed\{([^}]*)\}', text)
+
+        if boxed:
+            answer = number_regex.findall(boxed[-1])
+            if type(answer) == list: # If more than one number gets detected in the \boxed{}
+                if answer:
+                    answer = answer[-1]
+                    output = symbols_regex.sub('', answer)
+                    
+                    return output
+            elif answer:
+                output = symbols_regex.sub('', answer)
+   
+        return ''
+
+    # She regular on my expression
+    number_regex = re.compile(r'[,\$£%g]?(-?\d+(?:,\d+)*(?:\.\d+)?)')
+    symbols_regex = re.compile(r'[,\$£€¥%g]')
+
+    # If it's the ground truth, just return the number
     if truth:
         answer = re.split(r'####', text)[-1].strip()
-        output = re.sub(r'[,\$£€¥%g]', '', answer)
+        output = symbols_regex.sub('', answer)
+        
         return output
+    
+    # Otherwise, try \boxed{}
+    boxed = get_boxed(text, number_regex, symbols_regex)
+    if boxed: 
+        return boxed
 
-    # If eos is provided, split on it first
+    # Failing that, just get the last number, splitting on eos first (if we have one)
     if eos:
         text = re.split(re.escape(eos), text)[0].strip()
-    
-    # Look for numbers with optional decimal points, commas, and currency symbols
-    all_numbers = re.findall(r'[,\$£€¥%g]?(\d+(?:,\d+)*(?:\.\d+)?)', text)
+
+    all_numbers = number_regex.findall(text)
     
     if all_numbers:
         answer = all_numbers[-1].strip()
-        output = re.sub(r'[,\$£€¥%g]', '', answer)#
+        output = symbols_regex.sub('', answer)
+
         return output
     
+    # Finally, if there aren't any numbers, just resturn empty string
     return ''
 
 
@@ -119,15 +148,14 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
     # Clear up any slashes in the model name to avoid making directories
     model_name = model_name.replace('/', '_')
     dataset_name = dataset_name.replace('/', '_')
-    dataset_name_short = dataset_name.split('_')[-1]
 
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    os.makedirs(f'../results/{dataset_name_short}/{model_name}', exist_ok=True)
+    os.makedirs(f'../results/{dataset_name}/{model_name}', exist_ok=True)
 
     if use_cot:
-        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
+        result_file = f'../results/{dataset_name}/{model_name}/{dataset_name}_{n_shot}-shot_cot_{timestamp}.json'
     else:
-        result_file = f'../results/{dataset_name_short}/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
+        result_file = f'../results/{dataset_name}/{model_name}/{dataset_name}_{n_shot}-shot_nocot_{timestamp}.json'
 
     with open(result_file, 'w') as f:
         json.dump(results, f, indent=4)
@@ -135,7 +163,8 @@ def save_results(model_name: str, dataset_name: str, n_shot: int, use_cot: bool,
     print(f'Results saved to {result_file}')
 
 
-def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, use_cot: bool) -> str:
+def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, use_cot: bool, is_deepseek: bool = False,
+                           is_mistral: bool = False) -> str:
     """
     Generate a prompt for the model with n example questions for an n-shot prompt.
 
@@ -143,9 +172,10 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
         n_shot_data: dict, Training examples to use as n shots. Mustn't be from the test set.
         n: int, The number of example questions to include. Must be > 0.
         question: str, The actual prompt from the test set.
-        seed: int, The random seed to use for reproducibility.
         use_cot: bool, Whether to use the 'Let's think step by step.' prompt.
-
+        is_deepseek: bool, Whether the current model is DeepSeek (thus whether to use <think>\n at beginning of output)
+        is_mistral: bool, Whether the current model is Mistral (Mistral doesn't accept system prompts)
+        
     returns:
         string: str, The n-shot prompt for the model.
     """
@@ -158,19 +188,54 @@ def generate_n_shot_prompt(n_shot_data: dict, n: int, question: str, seed: int, 
             return f'{string}'
         else:
             return f'The answer is {extract_answer(string, truth=True)}.'   # Only give the answer, not the working, for non-cot
+        
+    def generate_n_examples(n_shot_data, n, use_cot):
+        n_shot_text = ''
 
-    # Get random samples from the training set to use as n-shot examples
-    prompts = []
-    for question_and_answer in random.sample(n_shot_data, n):
-        prompts.append({'role': 'user', 'content': question_prompt(question_and_answer['question'])})
-        prompts.append({'role': 'assistant', 'content': answer_prompt(question_and_answer['answer'], use_cot=use_cot)})
+        # Get random samples from the training set to use as n-shot examples
+        for question_and_answer in random.sample(n_shot_data, n):
+            n_shot_text += f'Question: {question_prompt(question_and_answer["question"])}'
+            n_shot_text += f'\nAnswer: {answer_prompt(question_and_answer["answer"], use_cot = use_cot)}\n\n'
 
-    if use_cot:
-        prompts.append({'role': 'user', 'content': question + ' Let\'s think step by step.'})
+        return n_shot_text
+
+    system_cot = 'You are a helpful AI assistant that will answer reasoning questions. You will reason step by step ' \
+                'and you will always say at the end "$\\boxed{your answer}$". You must end your response with ' \
+                '"\\boxed{your answer}" everytime!'
+    system_nocot = 'You are a helpful AI assistant that will answer reasoning questions. You will only say ' \
+                '"\\boxed{your answer}". You must end your response with "\\boxed{your answer}" everytime!'
+    
+    prompt = [] # Stores the prompt to give to the model
+    system_prompt = f'System:\n{(system_cot if use_cot else system_nocot)}\n' if is_mistral else ''
+    cot = 'Let\'s think step by step.' if use_cot else ''
+    deepseek = '<think>\n' if is_deepseek else ''
+    final_question = f'Question: {question} ' + cot + '\n' + 'Answer: ' + deepseek
+    
+    if not (is_mistral or is_deepseek):
+        if use_cot:
+            prompt.append(
+                {'role': 'system', 'content': system_cot}
+            )
+        else:
+            prompt.append(
+                {'role': 'system', 'content': system_nocot}
+            )
+
+    # If number of shots > 0, generate the examples
+    if n > 0:
+        n_shots = system_prompt + '\n' + generate_n_examples(n_shot_data, n, use_cot)
+        full_prompt = n_shots + final_question
+        prompt.append(
+            {'role': 'user', 'content': full_prompt}
+        )
+    # Otherwise, just append the actual question
     else:
-        prompts.append({'role': 'user', 'content': question})
+        full_prompt = system_prompt + final_question
+        prompt.append(
+            {'role': 'user', 'content': full_prompt}
+        )
 
-    return prompts
+    return prompt
 
 
 def print_setup(parameters: dict = None) -> None:
@@ -206,11 +271,11 @@ def convert_prompt_format(raw_prompt: str) -> list:
     Convert a prompt with special tokens into a clean turn-based conversation format.
     Works with any n-shot prompt format and handles the final question with no answer.
     
-    Args:
-        raw_prompt: String prompt potentially containing special tokens
+    args:
+        raw_prompt: str, String prompt potentially containing special tokens.
         
-    Returns:
-        List of dictionaries with alternating user/assistant messages
+    returns:
+        qa_pairs: list, List of dictionaries with alternating user/assistant messages
     """
 
     clean_prompt = re.sub(r'<\|[^>]+\|>|begin_of_text|start_header_id|end_header_id|eot_id', '', raw_prompt)
